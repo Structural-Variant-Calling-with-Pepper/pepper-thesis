@@ -22,30 +22,30 @@ namespace ImageOptionsRegion {
     static constexpr int BASE_INDEX_SIZE = 14;
     vector<string> column_values{"REFB:",
                                  "SNPS:",
-                                 "INSS:",
-                                 "DELS:",
+                                 "INSS:", // 2
+                                 "DELS:", // 3
                                  "REFF:",
                                  "SNPF:",
-                                 "INSF:",
-                                 "DELF:",
+                                 "INSF:", // 6
+                                 "DELF:", // 7
                                  "AFRW:",
                                  "CFRW:",
                                  "GFRW:",
                                  "TFRW:",
                                  "IFRW:",
-                                 "DFRW:",
-                                 "*FRW:",
+                                 "DFRW:", // 13
+                                 "*FRW:", // 14
                                  "REFR:",
                                  "SNPR:",
                                  "INSR:",
-                                 "DELR:",
+                                 "DELR:", // 18
                                  "AREV:",
                                  "CREV:",
                                  "GREV:",
                                  "TREV:",
                                  "IREV:",
-                                 "DREV:",
-                                 "*REV:"};
+                                 "DREV:", // 24
+                                 "*REV:"}; // 25
 
     static constexpr bool GENERATE_INDELS = false;
 };
@@ -63,6 +63,12 @@ struct type_truth_record{
         this->pos_end = pos_end;
         this->ref = std::move(ref);
         this->alt = std::move(alt);
+    }
+
+    // override cerr
+    friend ostream& operator<<(ostream& os, const type_truth_record& record) {
+        os << record.contig << ": " << record.pos_start << "-" << record.pos_end;
+        return os;
     }
 };
 
@@ -147,6 +153,15 @@ class RegionalSummaryGenerator {
     vector<int> variant_type_labels_hp1;
     vector<int> variant_type_labels_hp2;
     vector<char> ref_at_labels;
+
+    bool skip_snps;
+    bool generate_negatives;
+    int candidate_length_thresh = 50;
+
+    int del_merge_window;
+    int ins_merge_window;
+    double ins_merge_score_threshold;
+    double del_merge_score_threshold;
 public:
     vector<uint16_t> labels;
     vector<uint16_t> labels_variant_type;
@@ -155,6 +170,7 @@ public:
     vector<uint32_t> index;
     vector<uint64_t> cumulative_observed_insert;
     uint64_t total_observered_insert_bases;
+    bool print_colored_debug = false;
 
     RegionalSummaryGenerator(string contig, long long region_start, long long region_end, string reference_sequence);
 

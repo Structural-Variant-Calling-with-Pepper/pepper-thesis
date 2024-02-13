@@ -1,5 +1,5 @@
 class ConsensCandidateFinder(object):
-    REGION_SAFE_BASES = 100
+    REGION_SAFE_BASES = 300
 
 
 class ImageSizeOptions(object):
