@@ -11,3 +11,4 @@ pyyaml
 torchnet
 intervaltree
 pysam
+colorama
