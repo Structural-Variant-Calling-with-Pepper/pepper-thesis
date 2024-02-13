@@ -75,6 +75,9 @@ void CandidateFinder::add_read_alleles(type_read &read, vector<int> &coverage) {
                                 AlleleMap[region_index].insert(candidate_alt);
 
                             coverage[region_index] += 1;
+
+                            // cout << "------------ALLELEMAP-------------\n" << AlleleMap[region_index] << "\n"
+
                         }
                     } else if (ref_position <= region_end &&
                                read.base_qualities[read_index] >= CandidateFinder_options::min_base_quality) {

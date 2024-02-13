@@ -156,9 +156,8 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
         // get the position where it gets aligned
         int32_t pos = alignment->core.pos;
         uint32_t len = alignment->core.l_qseq;
-        if(true){
-            // cerr << BOLDYELLOW << "seq_name: " << query_name <<" pos: " << pos << " len: " << len << " start: " << start << " stop: " << stop << RESET <<endl;
-            cerr << BOLDYELLOW << query_name << RESET << endl;
+        if(print_colored_debug){
+            cerr << BOLDYELLOW << "seq_name: " << query_name <<" pos: " << pos << " len: " << len << " start: " << start << " stop: " << stop << RESET <<endl;
         }
         // get the base qualities and sequence bases
         uint8_t *seqi = bam_get_seq(alignment);
@@ -206,14 +205,19 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
             if (current_read_pos > stop) {
                 break;
             }
+            
+            // cerr << YELLOW << "Fahmid Check b4 Cigar Switch" << endl << RESET;
 
             switch (cigar_op) {
+                // cerr << YELLOW << "Fahmid Check Cigar Switch" << endl << RESET;
+
                 case BAM_CMATCH:
                 case BAM_CDIFF:
                 case BAM_CEQUAL:
                 case BAM_CSOFT_CLIP:
                     cigar_index = 0;
                     if(cigar_op == BAM_CSOFT_CLIP) cerr << "Soft clip at " << current_read_pos << endl;
+                    // cerr << YELLOW << "Fahmid Check in Bam Handler SC, current pos: " << current_read_pos << endl << RESET;
                     // if the current read position is to the left then we jump forward
                     if (current_read_pos < start) {
                         // jump as much as we can but not more than the boundary of start
@@ -261,6 +265,7 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
                         cigar_instance.length = modified_cigar_length;
                         cigar_tuples.push_back(cigar_instance);
                     }
+                    // cerr << BLUE << "Fahmid Check in Bam Handler SC, current pos: " << current_read_pos << endl << RESET;
                     break;
                 case BAM_CINS:
                     modified_cigar_length = 0;

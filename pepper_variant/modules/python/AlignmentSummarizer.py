@@ -5,12 +5,16 @@ from pepper_variant.modules.python.Options import ImageSizeOptions, AlingerOptio
 import sys
 from colorama import Fore, Style
 
+fahmid_check = False
 
 class AlignmentSummarizer:
     """
 
     """
     def __init__(self, bam_handler, fasta_handler, chromosome_name, region_start, region_end):
+        if fahmid_check :
+            sys.stderr.write(Fore.RED + f"Fahmid Check in Allignement Summarizer Constructor, region start: {region_start} and region end: {region_end}\n" + Style.RESET_ALL)
+
         self.bam_handler = bam_handler
         self.fasta_handler = fasta_handler
         self.chromosome_name = chromosome_name
@@ -33,14 +37,14 @@ class AlignmentSummarizer:
             elif bed_left > right:
                 continue
             else:
-                left_bed = max(left, bed_left)
-                right_bed = min(right, bed_right)
-                # left_bed = bed_left
-                # right_bed = bed_right
-                # if i == 0 and left_bed < 300:
-                #     left_bed = 301
-                # elif i == len(bed_intervals) - 1:
-                #     right_bed -= 301
+                # left_bed = max(left, bed_left)
+                # right_bed = min(right, bed_right)
+                left_bed = bed_left
+                right_bed = bed_right
+                if i == 0 and left_bed < 300:
+                    left_bed = 301
+                elif i == len(bed_intervals) - 1:
+                    right_bed -= 301
                 
                 intervals.append([left_bed, right_bed])
 
@@ -213,7 +217,10 @@ class AlignmentSummarizer:
                 
                 if self.print_colored_debug:
                     sys.stderr.write(Fore.LIGHTWHITE_EX + f"Regional summary : {regional_summary}\n" + Fore.RESET)
-                    
+                
+                if fahmid_check :
+                    sys.stderr.write(Fore.RED + f"Fahmid Check in Allignement Summarizer Just b4 gen sum, region start: {self.region_start_position} and region end: {self.region_end_position}\n" + Style.RESET_ALL)
+
                 candidate_image_summary = regional_summary.generate_summary(all_reads,
                                                                             options.min_snp_baseq,
                                                                             options.min_indel_baseq,
@@ -296,6 +303,9 @@ class AlignmentSummarizer:
 
                 regional_summary = PEPPER_VARIANT.RegionalSummaryGenerator(self.chromosome_name, region_start, region_end, ref_seq)
                 regional_summary.generate_max_insert_summary(all_reads)
+
+                if fahmid_check :
+                    sys.stderr.write(Fore.RED + f"Fahmid Check in Allignement Summarizer Just b4 gen sum, region start: {self.region_start_position} and region end: {self.region_end_position}\n" + Style.RESET_ALL)
 
                 candidate_image_summary = regional_summary.generate_summary(all_reads,
                                                                             options.min_snp_baseq,

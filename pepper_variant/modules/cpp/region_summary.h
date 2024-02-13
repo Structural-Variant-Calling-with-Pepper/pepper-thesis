@@ -45,7 +45,9 @@ namespace ImageOptionsRegion {
                                  "TREV:",
                                  "IREV:",
                                  "DREV:", // 24
-                                 "*REV:"}; // 25
+                                 "*REV:", // 25
+                                 "*SCF:", // 26
+                                 "*SCR:"}; // 27
 
     static constexpr bool GENERATE_INDELS = false;
 };
