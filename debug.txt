@@ -1,0 +1,1 @@
+/home/shuaib/L4T1/hg002_benchmark_files/HG002_35x_HiFi_2_GRCh37.bam

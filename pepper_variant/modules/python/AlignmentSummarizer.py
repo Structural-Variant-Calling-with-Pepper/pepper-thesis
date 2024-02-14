@@ -20,7 +20,7 @@ class AlignmentSummarizer:
         self.chromosome_name = chromosome_name
         self.region_start_position = region_start
         self.region_end_position = region_end
-        self.print_colored_debug = True
+        self.print_colored_debug = False
 
     @staticmethod
     def range_intersection_bed(interval, bed_intervals):
