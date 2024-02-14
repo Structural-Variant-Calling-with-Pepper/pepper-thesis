@@ -31,6 +31,7 @@ class BAM_handler {
         htsFile* hts_file;
         hts_idx_t* idx;
         bam_hdr_t* header;
+        bool print_colored_debug = false;
 
         // initialize a bam file
         BAM_handler(string path);
