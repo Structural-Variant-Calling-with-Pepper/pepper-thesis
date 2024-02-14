@@ -189,6 +189,7 @@ def set_parameters(options):
                 options.insert_frequency = 0.12
             if options.delete_frequency is None:
                 options.delete_frequency = 0.10
+                # options.delete_frequency = 0
             if options.min_coverage_threshold is None:
                 options.min_coverage_threshold = 2
             if options.candidate_support_threshold is None:
