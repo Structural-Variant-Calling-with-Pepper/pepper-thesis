@@ -2,6 +2,7 @@
 // Created by Kishwar Shafin on 6/14/18.
 //
 #include "bam_handler.h"
+#include "colors.h"
 
 BAM_handler::BAM_handler(string path) {
     this->hts_file = sam_open(path.c_str(), "r");
@@ -24,7 +25,7 @@ BAM_handler::BAM_handler(string path) {
         cerr<<"HEADER ERROR: INVALID BAM FILE. PLEASE CHECK IF PATH IS CORRECT."<<endl;
         exit (EXIT_FAILURE);
     }
-
+    this->print_colored_debug = false;
 }
 
 set<string> BAM_handler::get_sample_names() {
@@ -155,7 +156,9 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
         // get the position where it gets aligned
         int32_t pos = alignment->core.pos;
         uint32_t len = alignment->core.l_qseq;
-
+        if(print_colored_debug){
+            cerr << BOLDYELLOW << "seq_name: " << query_name <<" pos: " << pos << " len: " << len << " start: " << start << " stop: " << stop << RESET <<endl;
+        }
         // get the base qualities and sequence bases
         uint8_t *seqi = bam_get_seq(alignment);
         uint8_t *qual = bam_get_qual(alignment);
@@ -177,25 +180,50 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
 
         // this is a bit ambitious, we are cutting all the reads to desired regions so we don't have to deal with ultra-long reads
         // I am not sure if there are any downside to it, but I would really love the speed-up
+        char cigar_id_to_char[11] = {
+            [BAM_CMATCH]  = 'M',
+            [BAM_CINS]    = 'I',
+            [BAM_CDEL]    = 'D',
+            [BAM_CREF_SKIP] = 'N',
+            [BAM_CSOFT_CLIP] = 'S',
+            [BAM_CHARD_CLIP] = 'H',
+            [BAM_CPAD] = 'P',
+            [BAM_CEQUAL] = '=',
+            [BAM_CDIFF] = 'X',
+            [BAM_CBACK] = 'B'
+        };
         for (int k = 0; k < alignment->core.n_cigar; k++) {
             // we are going on all cigar operations to cut the reads short
             int cigar_op = bam_cigar_op(cigar[k]);
             int cigar_len = bam_cigar_oplen(cigar[k]);
+            bool debug = query_name=="SRR9001772.257834" && start==150691719;
+            if (debug) {
+                cerr << BOLDGREEN << " current_read_pos: " << current_read_pos << "\t" << cigar_id_to_char[cigar_op] << " " << cigar_len << RESET <<endl;
+            }
             int modified_cigar_length;
             int cigar_index;
             if (current_read_pos > stop) {
                 break;
             }
+            
+            // cerr << YELLOW << "Fahmid Check b4 Cigar Switch" << endl << RESET;
 
             switch (cigar_op) {
+                // cerr << YELLOW << "Fahmid Check Cigar Switch" << endl << RESET;
+
                 case BAM_CMATCH:
                 case BAM_CDIFF:
                 case BAM_CEQUAL:
+                case BAM_CSOFT_CLIP:
                     cigar_index = 0;
+                    // cerr << YELLOW << "Fahmid Check in Bam Handler SC, current pos: " << current_read_pos << endl << RESET;
                     // if the current read position is to the left then we jump forward
                     if (current_read_pos < start) {
                         // jump as much as we can but not more than the boundary of start
                         cigar_index = min(start - current_read_pos, (long long) cigar_len);
+                        if (debug){
+                            cerr << BOLDMAGENTA << "jumping forward: " << cigar_index << RESET <<endl;
+                        }
                         current_read_index += cigar_index;
                         current_read_pos += cigar_index;
                     }
@@ -236,8 +264,8 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
                         cigar_instance.length = modified_cigar_length;
                         cigar_tuples.push_back(cigar_instance);
                     }
+                    // cerr << BLUE << "Fahmid Check in Bam Handler SC, current pos: " << current_read_pos << endl << RESET;
                     break;
-                case BAM_CSOFT_CLIP:
                 case BAM_CINS:
                     modified_cigar_length = 0;
                     // this only happens after the first position, I am also forcing an anchor
@@ -276,6 +304,7 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
                 case BAM_CREF_SKIP:
                 case BAM_CDEL:
                     modified_cigar_length = 0;
+                    // stop = max(stop, current_read_pos + cigar_len);
                     if (current_read_pos >= start && current_read_pos <= stop && pos_start != -1) {
                         modified_cigar_length = 0;
                         for (int i = 0; i < cigar_len; i++) {
