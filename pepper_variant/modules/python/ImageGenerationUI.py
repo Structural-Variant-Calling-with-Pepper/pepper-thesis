@@ -13,7 +13,8 @@ from pepper_variant.modules.python.DataStore import DataStore
 from pepper_variant.modules.python.AlignmentSummarizer import AlignmentSummarizer
 from pepper_variant.modules.python.AlignmentSummarizerHP import AlignmentSummarizerHP
 from pepper_variant.modules.python.Options import ImageSizeOptions
-
+from pepper_variant.modules.python.VcfWriter_candidates import VCFWriter
+import h5py
 
 class ImageGenerator:
     """
@@ -51,7 +52,7 @@ class ImageGenerator:
                                                        self.chromosome_name,
                                                        start_position,
                                                        end_position)
-
+            
             candidate_images = alignment_summarizer.create_summary(options,
                                                                    bed_list,
                                                                    thread_id)
@@ -188,6 +189,95 @@ class ImageGenerationUtils:
         return chromosome_name_list, region_bed_list
 
     @staticmethod
+    def convert_candidate_to_vcf_record(options, all_candidates):
+        # First create a dictionary of positional candidates
+        candidate_list = []
+        positional_candidates = defaultdict(lambda: list)
+        fasta_handler = PEPPER_VARIANT.FASTA_handler(options.fasta)
+        for candidate in all_candidates:
+            reference_base = fasta_handler.get_reference_sequence(candidate.contig, candidate.position, candidate.position+1).upper()
+            alt_alleles = []
+            variant_allele_support = []
+            reference_allele = reference_base
+            genotype = [0,0]
+            if candidate.type_label == 1:
+                genotype = [0, 1]
+            elif candidate.type_label == 2:
+                genotype = [1, 1]
+            for alt_allele, allele_frequency in zip(candidate.candidates, candidate.candidate_frequency):
+                # sys.stderr.write("[" + datetime.now().strftime('%m-%d-%Y %H:%M:%S') + "] INFO: " + f"{str(alt_allele)} -> {str(reference_allele)}, genotype: {candidate.type_label}" + "\n")
+                alt_type = alt_allele[0]
+                if alt_type == '1':
+                    alt_alleles.append(''.join(alt_allele[1:]))
+                    variant_allele_support.append(allele_frequency)
+                elif alt_type == '2':
+                    alt_alleles.append(''.join(alt_allele[1:]))
+                    variant_allele_support.append(allele_frequency)
+                elif alt_type == '3':
+                    alt_alleles.append(reference_allele)
+                    reference_allele = ''.join(alt_allele[1:])
+                    variant_allele_support.append(allele_frequency)
+            if len(alt_alleles) > 0:
+                if (candidate.contig, candidate.position) not in positional_candidates.keys():
+                    positional_candidates[(candidate.contig, candidate.position)] = []
+                positional_candidates[(candidate.contig, candidate.position)].append((candidate.contig, candidate.position, candidate.position + len(reference_allele), reference_allele, alt_alleles, genotype, candidate.depth, variant_allele_support))
+
+        # now go over the positional dictory to normalize variants
+        for candidates in positional_candidates.values():
+            max_ref_length = 0
+            max_ref_allele = ''
+            # find the maximum reference allele
+            for candidate in candidates:
+                contig, ref_start, ref_end, ref_allele, alt_allele, genotype, depth, variant_allele_support = candidate
+                if len(ref_allele) > max_ref_length:
+                    max_ref_length = len(ref_allele)
+                    max_ref_allele = ref_allele
+
+            # normalize the variant in a site
+            normalized_candidates = []
+            for candidate in candidates:
+                contig, ref_start, ref_end, ref_allele, alt_allele, genotype, depth, variant_allele_support = candidate
+                suffix_needed = 0
+                if len(ref_allele) < max_ref_length:
+                    suffix_needed = max_ref_length - len(ref_allele)
+                if suffix_needed > 0:
+                    suffix_seq = max_ref_allele[-suffix_needed:]
+                    ref_allele = ref_allele + suffix_seq
+                    alt_allele = [alt + suffix_seq for alt in alt_allele]
+
+                normalized_candidates.append((contig, ref_start, ref_end, ref_allele, alt_allele, genotype, depth, variant_allele_support))
+
+            # Finally convert it to a site variant reportable as vcf record
+            candidates = sorted(normalized_candidates, key=lambda x: (x[7], x[1], x[2]))
+            all_initialized = False
+            site_contig = ''
+            site_ref_start = 0
+            site_ref_end = 0
+            site_ref_allele = ''
+            site_depth = 0
+            site_alts = []
+            site_supports = []
+            site_qualities = []
+
+            for candidate in candidates:
+                contig, ref_start, ref_end, ref_allele, alt_allele, genotype, depth, variant_allele_support = candidate
+                if not all_initialized:
+                    site_contig = contig
+                    site_ref_start = ref_start
+                    site_ref_end = ref_start + len(ref_allele)
+                    site_ref_allele = ref_allele
+                    site_depth = depth
+                    all_initialized = True
+
+                site_depth = min(site_depth, depth)
+                site_alts.append(alt_allele[0])
+                site_supports.append(variant_allele_support[0])
+                site_qualities.append(3)
+            candidate_list.append((site_contig, site_ref_start, site_ref_end, site_ref_allele, site_alts, genotype, site_depth, site_supports))
+
+        return candidate_list
+
+    @staticmethod
     def generate_image_and_save_to_file(options, all_intervals, bed_list, process_id):
         """
         Method description
@@ -219,6 +309,7 @@ class ImageGenerationUtils:
 
         start_time = time.time()
         # print("Starting thread", thread_prefix)
+        all_vcf_records = []
         with DataStore(file_name, 'w') as output_hdf_file:
             for counter, interval in enumerate(intervals):
                 chr_name, _start, _end = interval
@@ -228,6 +319,10 @@ class ImageGenerationUtils:
 
                 candidates = image_generator.generate_summary(options, _start, _end, bed_list, process_id)
                 if candidates is not None:
+                    # Convert candidates to vcf records
+                    vcf_record_list = ImageGenerationUtils.convert_candidate_to_vcf_record(options, candidates)
+                    all_vcf_records.extend(vcf_record_list)
+                    # Process and save images
                     all_contig = []
                     all_position = []
                     all_depth = []
@@ -271,7 +366,7 @@ class ImageGenerationUtils:
                                      + " [ELAPSED TIME: " + str(mins) + " Min " + str(secs) + " Sec]\n")
                     sys.stderr.flush()
 
-        return process_id
+        return process_id, all_vcf_records
 
     @staticmethod
     def generate_images(options):
@@ -288,6 +383,7 @@ class ImageGenerationUtils:
 
         all_intervals = []
         total_bases = 0
+        all_canidate_variants = []
         # first calculate all the intervals that we need to process
         for chr_name, region in chr_list:
             # contig update message
@@ -330,7 +426,9 @@ class ImageGenerationUtils:
             for fut in concurrent.futures.as_completed(futures):
                 if fut.exception() is None:
                     # get the results
-                    process_id = fut.result()
+                    process_id, vcf_records = fut.result()
+                    for vcf_record in vcf_records:
+                        all_canidate_variants.append(vcf_record)
                     if process_id == 0:
                         sys.stderr.write("[" + str(datetime.now().strftime('%m-%d-%Y %H:%M:%S')) + "] INFO: THREAD "
                                          + str(process_id) + " FINISHED SUCCESSFULLY.\n")
@@ -343,3 +441,36 @@ class ImageGenerationUtils:
         secs = int((end_time - start_time)) % 60
         sys.stderr.write("[" + str(datetime.now().strftime('%m-%d-%Y %H:%M:%S')) + "] INFO: FINISHED IMAGE GENERATION\n")
         sys.stderr.write("[" + str(datetime.now().strftime('%m-%d-%Y %H:%M:%S')) + "] INFO: TOTAL ELAPSED TIME FOR GENERATING IMAGES: " + str(mins) + " Min " + str(secs) + " Sec\n")
+        sys.stderr.write("[" + str(datetime.now().strftime('%m-%d-%Y %H:%M:%S')) + "] INFO: WRITING VCF OF CANDIDATES.\n")
+        vcf_writer = VCFWriter(options.fasta, sample_name='default', output_dir=options.image_output_directory, filename='pepper_all_candidates')
+        all_canidate_variants = sorted(all_canidate_variants, key=lambda x: (x[0], x[1], x[2]))
+        vcf_writer.dump_candidates(all_canidate_variants)
+        sys.stderr.write("[" + str(datetime.now().strftime('%m-%d-%Y %H:%M:%S')) + "] INFO: FINISHED GENERATING VCF.\n")
+        
+
+    @staticmethod
+    def run_inference(options, image_dir, output_dir):
+        filename = image_dir # for now it is testing on a single file
+        with h5py.File(filename, 'r') as hdf5_file:
+            all_contig = []
+            all_position = []
+            all_depth = []
+            all_candidates = []
+            all_candidate_frequency = []
+            all_image_matrix = []
+            if 'summaries' in hdf5_file:
+                summary_names = list(hdf5_file['summaries'].keys())
+                for summary_name in summary_names:
+                    contigs = hdf5_file['summaries'][summary_name]['contigs'][()]
+                    positions = hdf5_file['summaries'][summary_name]['positions'][()]
+                    depths = hdf5_file['summaries'][summary_name]['depths'][()]
+                    candidates = hdf5_file['summaries'][summary_name]['candidates'][()]
+                    candidate_frequencies = hdf5_file['summaries'][summary_name]['candidate_frequency'][()]
+                    images = hdf5_file['summaries'][summary_name]['images'][()]
+                    all_contig.extend(contigs)
+                    all_position.extend(positions)
+                    all_depth.extend(depths)
+                    all_candidates.extend(candidates)
+                    all_candidate_frequency.extend(candidate_frequencies)
+                    all_image_matrix.extend(images)
+                print(candidates[0])
