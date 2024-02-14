@@ -1,9 +1,9 @@
 class ConsensCandidateFinder(object):
-    REGION_SAFE_BASES = 100
+    REGION_SAFE_BASES = 300
 
 
 class ImageSizeOptions(object):
-    IMAGE_HEIGHT = 26
+    IMAGE_HEIGHT = 28
     IMAGE_CHANNELS = 1
     CANDIDATE_WINDOW_SIZE = 32
 
