@@ -125,14 +125,15 @@ def distributed_cpu(options, image_dir, output_dir):
 def run_inference(options,
                   image_dir,
                   output_dir):
-    output_dir = ImageGenerationUtils.handle_output_directory(output_dir)
-    if options.dry:
-        predict_distributed_cpu_fake(image_dir, output_dir, options.batch_size, options.num_workers)
-    elif options.gpu:
-        distributed_gpu(options,
-                        image_dir,
-                        output_dir)
-    else:
-        distributed_cpu(options,
-                        image_dir,
-                        output_dir)
+    # output_dir = ImageGenerationUtils.handle_output_directory(output_dir)
+    # if options.dry:
+    #     predict_distributed_cpu_fake(image_dir, output_dir, options.batch_size, options.num_workers)
+    # elif options.gpu:
+    #     distributed_gpu(options,
+    #                     image_dir,
+    #                     output_dir)
+    # else:
+    #     distributed_cpu(options,
+    #                     image_dir,
+    #                     output_dir)
+    ImageGenerationUtils.run_inference(options, image_dir, output_dir)
