@@ -504,7 +504,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                                        vector< set<string> > &AlleleMap,
                                                        type_read read,
                                                        double min_snp_baseq,
-                                                       double min_indel_baseq) {
+                                                       double min_indel_baseq,
+                                                       bool train_mode) {
 
     // cerr << "Populate Summary Matrix Called" << endl;
     int read_index = 0;
@@ -839,51 +840,225 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     char ref_base = reference_sequence[ref_position - 1 - ref_start];
                     int base_index = (int)(ref_position - 1 - ref_start + cumulative_observed_insert[ref_position - 1 - ref_start]);
                     
-                    bool hp1_hasAsterisk, hp1_hasHash, hp2_hasAsterisk, hp2_hasHash;
-                    string hp1_alt, hp2_alt, hp1_ref, hp2_ref;
-                    long len_1, len_2;
-                    int pos_1, pos_2;
+                    if (train_mode) {
+                        bool hp1_hasAsterisk, hp1_hasHash, hp2_hasAsterisk, hp2_hasHash;
+                        string hp1_alt, hp2_alt, hp1_ref, hp2_ref;
+                        long len_1, len_2;
+                        int pos_1, pos_2;
 
-                    checkLabels(labels_hp1, base_index, hp1_truth_alleles, hp1_hasAsterisk, hp1_hasHash, hp1_alt, len_1, pos_1, hp1_ref);
-                    checkLabels(labels_hp2, base_index, hp2_truth_alleles, hp2_hasAsterisk, hp2_hasHash, hp2_alt, len_2, pos_2, hp2_ref);
+                        checkLabels(labels_hp1, base_index, hp1_truth_alleles, hp1_hasAsterisk, hp1_hasHash, hp1_alt, len_1, pos_1, hp1_ref);
+                        checkLabels(labels_hp2, base_index, hp2_truth_alleles, hp2_hasAsterisk, hp2_hasHash, hp2_alt, len_2, pos_2, hp2_ref);
 
-                    if(hp1_hasAsterisk || hp2_hasAsterisk) {
-                        // Insertion Case
-                        if (fahmid_check) {
-                            cerr << "Found Insertion" <<endl;
+                        if(hp1_hasAsterisk || hp2_hasAsterisk) {
+                            // Insertion Case
+                            if (fahmid_check) {
+                                cerr << "Found Insertion" <<endl;
+                            }
+
+                            string alt;
+                            int len, pos;
+                            
+                            if(hp1_hasAsterisk) {
+                                alt = hp1_alt;
+                                len = len_1;
+                            } else {
+                                alt = hp2_alt;
+                                len = len_2;
+                            }
+
+                            if (fahmid_check) {
+                                cerr << len << endl;
+                                cerr << alt << endl;
+                            }
+                            
+                            // save the candidate
+                            string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
+                            
+                            if (fahmid_check) {
+                                cerr << "Before reg index func call" << endl;
+                            }
+
+                            int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, false);
+                            
+                            
+                            if(candidate_string.length() >= candidate_length_thresh) {
+                                
+                                if (region_index == -1) {
+                                    region_index = (int) (ref_position - 1 - ref_start);
+                                }
+                                
+                                insert_count[ref_position - 1 - ref_start] += 1;
+
+                                if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
+                                    AlleleFrequencyMap[region_index][candidate_string] += 1;
+                                    if(read.flags.is_reverse) {
+                                        AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
+                                    } else {
+                                        AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
+                                    }
+                                } else {
+                                    AlleleFrequencyMap[region_index][candidate_string] = 1;
+                                    if(read.flags.is_reverse) {
+                                        AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
+                                        AlleleFrequencyMapRevStrand[region_index][candidate_string] = 1;
+                                    } else {
+                                        AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 1;
+                                        AlleleFrequencyMapRevStrand[region_index][candidate_string] = 0;
+                                    }
+                                }
+
+                                if (AlleleMap[region_index].find(candidate_string) == AlleleMap[region_index].end())
+                                    AlleleMap[region_index].insert(candidate_string);
+                            }
+
+                        } else if(hp1_hasHash || hp2_hasHash) {
+                            // Deletion Case
+                            if (fahmid_check) {
+                                cerr << "Found Deletion" <<endl;
+                            }
+
+                            string ref;
+                            int len, pos;
+                            if (fahmid_check) {
+                                // cerr << "Fahmid Check" << endl;
+                            }
+
+                            if(hp1_hasHash) {
+                                if (fahmid_check) {
+                                    cerr << "at hp1 hash" << endl;
+                                }
+                                ref = hp1_ref;
+                                len = len_1;
+                            } else {
+                                if (fahmid_check) {
+                                    cerr << "at hp2 hash" << endl;
+                                }
+                                ref = hp2_ref;
+                                len = len_2;
+                            }
+                            if (fahmid_check) {
+                                cerr << len << endl;
+                                cerr << ref << endl;
+                            }
+
+                            string candidate_string = char(AlleleType::DELETE_ALLELE + '0') + ref;
+
+                            int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, true);
+                            if (region_index == -1) {
+                                    region_index = (int) (ref_position - 1 - ref_start);
+                            }
+
+                            int region_end_index = (int) (region_index + len);
+                            
+                            int ref_ahead_index = region_index + len;
+                            int ref_behind_index = region_index - len;
+                            
+
+                            if (fahmid_check) {
+                                // cerr << "Fahmid Check" << endl;
+                            }
+
+                            if (ref_ahead_index >= AlleleFrequencyMap.size() && ref_behind_index >= 0) {
+                                if (fahmid_check) {
+                                    cerr << "Fahmid Check: may be left clip" << endl;
+                                }
+                                region_end_index = region_index;
+                                region_index = (int)ref_behind_index;
+                                
+                            } else if (ref_ahead_index < AlleleFrequencyMap.size() && ref_behind_index < 0) {
+                                if (fahmid_check) {
+                                    cerr << "Fahmid Check: may be right clip" << endl;
+                                }
+                            } else {
+                                if (fahmid_check) {
+                                    cerr << RED << "[" << ref_behind_index << ", " << ref_ahead_index << "]" << AlleleFrequencyMap.size() << endl;
+                                    cerr << "Fahmid Check: Some Clip Error!!" << endl << RESET;
+                                }
+                            }
+
+                            if(candidate_string.length() >= candidate_length_thresh) {
+                                if (fahmid_check) {
+                                    cerr << "Fahmid Check refpos: " << ref_position << ", refstart: " << ref_start << endl;
+                                
+                                    // cerr << region_index << endl;
+                                    // cerr << region_end_index << endl;
+
+                                    cerr << "Fahmid Check b4 delcount: [" << ref_position - 1 - ref_start << ", " << ref_position - ref_start + len - 1 << "]" << endl;
+                                }
+
+                                delete_count[region_index] += 1;
+
+                                delete_count[region_end_index] += 1;
+
+                                if (fahmid_check) {
+                                    cerr << "Fahmid Check after delcount" <<endl;
+                                }
+                                
+                                if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
+                                    if (fahmid_check) {
+                                        cerr << "Fahmid Check in AFM not first" << endl;
+                                    }
+
+                                    AlleleFrequencyMap[region_index][candidate_string] += 1;
+                                    AlleleFrequencyMap[region_end_index]['E' + candidate_string] += 1;
+                                    if(read.flags.is_reverse) {
+                                        AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
+                                        AlleleFrequencyMapRevStrand[region_end_index]['E' + candidate_string] += 1;
+                                    } else {
+                                        AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
+                                        AlleleFrequencyMapFwdStrand[region_end_index]['E' + candidate_string] += 1;
+                                    }
+                                } else {
+                                    if (fahmid_check) {
+                                        cerr << "Fahmid Check in AFM first" << endl;
+                                    }
+                                    AlleleFrequencyMap[region_index][candidate_string] = 1;
+                                    if (fahmid_check) {
+                                        // cerr << "Fahmid Check " << AlleleFrequencyMap.size() << endl;
+                                    }
+                                    AlleleFrequencyMap[region_end_index]['E' + candidate_string] = 1;
+                                    if(read.flags.is_reverse) {
+                                        AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
+                                        AlleleFrequencyMapRevStrand[region_index][candidate_string] = 1;
+                                        AlleleFrequencyMapFwdStrand[region_end_index]['E' + candidate_string] = 0;
+                                        AlleleFrequencyMapRevStrand[region_end_index]['E' + candidate_string] = 1;
+                                    } else {
+                                        AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 1;
+                                        AlleleFrequencyMapRevStrand[region_index][candidate_string] = 0;
+                                        AlleleFrequencyMapFwdStrand[region_end_index]['E' + candidate_string] = 1;
+                                        AlleleFrequencyMapRevStrand[region_end_index]['E' + candidate_string] = 0;
+                                    }
+                                }
+                                
+                                if (fahmid_check) {
+                                    // cerr << "Fahmid Check" << endl;
+                                }
+                                if (AlleleMap[region_index].find(candidate_string) == AlleleMap[region_index].end()) {
+                                    AlleleMap[region_index].insert(candidate_string);
+                                    AlleleMap[region_end_index].insert('E' + candidate_string);
+                                }
+                
+                                for (int i = 0; i < len; i++) {
+                                    if (ref_position + i >= ref_start && ref_position + i <= ref_end) {
+                                        // update the summary of base
+                                        int base_index = (int) (ref_position - ref_start + i + cumulative_observed_insert[ref_position - ref_start + i]);
+                                        char ref_base = reference_sequence[ref_position - ref_start + i];
+                                        int feature_index = get_feature_index(ref_base, '*', read.flags.is_reverse);
+
+                                        if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
+
+                                    }
+                                }
+                            }    
+                        
                         }
-
-                        string alt;
-                        int len, pos;
-                        
-                        if(hp1_hasAsterisk) {
-                            alt = hp1_alt;
-                            len = len_1;
-                        } else {
-                            alt = hp2_alt;
-                            len = len_2;
-                        }
-
-                        if (fahmid_check) {
-                            cerr << len << endl;
-                            cerr << alt << endl;
-                        }
-                        
-                        // save the candidate
-                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
-                        
-                        if (fahmid_check) {
-                            cerr << "Before reg index func call" << endl;
-                        }
-
-                        int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, false);
-                        
-                        
+                    
+                    } else {
+                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + ref_base;
+                            
                         if(candidate_string.length() >= candidate_length_thresh) {
                             
-                            if (region_index == -1) {
-                                region_index = (int) (ref_position - 1 - ref_start);
-                            }
+                            int region_index = (int) (ref_position - 1 - ref_start);
                             
                             insert_count[ref_position - 1 - ref_start] += 1;
 
@@ -909,146 +1084,6 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 AlleleMap[region_index].insert(candidate_string);
                         }
 
-                    } else if(hp1_hasHash || hp2_hasHash) {
-                        // Deletion Case
-                        if (fahmid_check) {
-                            cerr << "Found Deletion" <<endl;
-                        }
-
-                        string ref;
-                        int len, pos;
-                        if (fahmid_check) {
-                            // cerr << "Fahmid Check" << endl;
-                        }
-
-                        if(hp1_hasHash) {
-                            if (fahmid_check) {
-                                cerr << "at hp1 hash" << endl;
-                            }
-                            ref = hp1_ref;
-                            len = len_1;
-                        } else {
-                            if (fahmid_check) {
-                                cerr << "at hp2 hash" << endl;
-                            }
-                            ref = hp2_ref;
-                            len = len_2;
-                        }
-                        if (fahmid_check) {
-                            cerr << len << endl;
-                            cerr << ref << endl;
-                        }
-
-                        string candidate_string = char(AlleleType::DELETE_ALLELE + '0') + ref;
-
-                        int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, true);
-                        if (region_index == -1) {
-                                region_index = (int) (ref_position - 1 - ref_start);
-                        }
-
-                        int region_end_index = (int) (region_index + len);
-                        
-                        int ref_ahead_index = region_index + len;
-                        int ref_behind_index = region_index - len;
-                        
-
-                        if (fahmid_check) {
-                            // cerr << "Fahmid Check" << endl;
-                        }
-
-                        if (ref_ahead_index >= AlleleFrequencyMap.size() && ref_behind_index >= 0) {
-                            if (fahmid_check) {
-                                cerr << "Fahmid Check: may be left clip" << endl;
-                            }
-                            region_end_index = region_index;
-                            region_index = (int)ref_behind_index;
-                            
-                        } else if (ref_ahead_index < AlleleFrequencyMap.size() && ref_behind_index < 0) {
-                            if (fahmid_check) {
-                                cerr << "Fahmid Check: may be right clip" << endl;
-                            }
-                        } else {
-                            if (fahmid_check) {
-                                cerr << RED << "[" << ref_behind_index << ", " << ref_ahead_index << "]" << AlleleFrequencyMap.size() << endl;
-                                cerr << "Fahmid Check: Some Clip Error!!" << endl << RESET;
-                            }
-                        }
-
-                        if(candidate_string.length() >= candidate_length_thresh) {
-                            if (fahmid_check) {
-                                cerr << "Fahmid Check refpos: " << ref_position << ", refstart: " << ref_start << endl;
-                            
-                                // cerr << region_index << endl;
-                                // cerr << region_end_index << endl;
-
-                                cerr << "Fahmid Check b4 delcount: [" << ref_position - 1 - ref_start << ", " << ref_position - ref_start + len - 1 << "]" << endl;
-                            }
-
-                            delete_count[region_index] += 1;
-
-                            delete_count[region_end_index] += 1;
-
-                            if (fahmid_check) {
-                                cerr << "Fahmid Check after delcount" <<endl;
-                            }
-                            
-                            if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
-                                if (fahmid_check) {
-                                    cerr << "Fahmid Check in AFM not first" << endl;
-                                }
-
-                                AlleleFrequencyMap[region_index][candidate_string] += 1;
-                                AlleleFrequencyMap[region_end_index]['E' + candidate_string] += 1;
-                                if(read.flags.is_reverse) {
-                                    AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
-                                    AlleleFrequencyMapRevStrand[region_end_index]['E' + candidate_string] += 1;
-                                } else {
-                                    AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
-                                    AlleleFrequencyMapFwdStrand[region_end_index]['E' + candidate_string] += 1;
-                                }
-                            } else {
-                                if (fahmid_check) {
-                                    cerr << "Fahmid Check in AFM first" << endl;
-                                }
-                                AlleleFrequencyMap[region_index][candidate_string] = 1;
-                                if (fahmid_check) {
-                                    // cerr << "Fahmid Check " << AlleleFrequencyMap.size() << endl;
-                                }
-                                AlleleFrequencyMap[region_end_index]['E' + candidate_string] = 1;
-                                if(read.flags.is_reverse) {
-                                    AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
-                                    AlleleFrequencyMapRevStrand[region_index][candidate_string] = 1;
-                                    AlleleFrequencyMapFwdStrand[region_end_index]['E' + candidate_string] = 0;
-                                    AlleleFrequencyMapRevStrand[region_end_index]['E' + candidate_string] = 1;
-                                } else {
-                                    AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 1;
-                                    AlleleFrequencyMapRevStrand[region_index][candidate_string] = 0;
-                                    AlleleFrequencyMapFwdStrand[region_end_index]['E' + candidate_string] = 1;
-                                    AlleleFrequencyMapRevStrand[region_end_index]['E' + candidate_string] = 0;
-                                }
-                            }
-                            
-                            if (fahmid_check) {
-                                // cerr << "Fahmid Check" << endl;
-                            }
-                            if (AlleleMap[region_index].find(candidate_string) == AlleleMap[region_index].end()) {
-                                AlleleMap[region_index].insert(candidate_string);
-                                AlleleMap[region_end_index].insert('E' + candidate_string);
-                            }
-            
-                            for (int i = 0; i < len; i++) {
-                                if (ref_position + i >= ref_start && ref_position + i <= ref_end) {
-                                    // update the summary of base
-                                    int base_index = (int) (ref_position - ref_start + i + cumulative_observed_insert[ref_position - ref_start + i]);
-                                    char ref_base = reference_sequence[ref_position - ref_start + i];
-                                    int feature_index = get_feature_index(ref_base, '*', read.flags.is_reverse);
-
-                                    if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
-
-                                }
-                            }
-                        }    
-                    
                     }
 
                     int soft_clip_count_index =  get_feature_index(ref_base, 'S', read.flags.is_reverse);
@@ -1143,7 +1178,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             }
 
             populate_summary_matrix(image_matrix, coverage_vector, snp_count, insert_count, delete_count,
-                                    AlleleFrequencyMap, AlleleFrequencyMapFwdStrand, AlleleFrequencyMapRevStrand, AlleleMap, read, min_snp_baseq, min_indel_baseq);
+                                    AlleleFrequencyMap, AlleleFrequencyMapFwdStrand, AlleleFrequencyMapRevStrand, AlleleMap, read, min_snp_baseq, min_indel_baseq, train_mode);
         }
     }
   
