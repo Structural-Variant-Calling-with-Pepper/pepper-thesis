@@ -20,7 +20,7 @@ RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long regi
     this->cumulative_observed_insert.resize(region_end-region_start+1, 0);
     fill(this->max_observed_insert.begin(), this->max_observed_insert.end(), 0);
     fill(this->cumulative_observed_insert.begin(), this->cumulative_observed_insert.end(), 0);
-    this->print_colored_debug = false;
+    this->print_colored_debug = true;
 
     if (print_colored_debug){
         cerr << RED << "[REGIONAL SUMMARY] chromosome_name: " << contig << ":" << region_start << "-" << region_end << RESET <<endl;
@@ -1252,7 +1252,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 0;
+            bool debug = 1;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
