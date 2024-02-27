@@ -52,3 +52,9 @@ out.txt
 
 # vscode
 .vscode/
+
+# All shell files
+*.sh
+
+# Debug files
+debug.txt

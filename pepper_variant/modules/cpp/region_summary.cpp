@@ -20,7 +20,7 @@ RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long regi
     this->cumulative_observed_insert.resize(region_end-region_start+1, 0);
     fill(this->max_observed_insert.begin(), this->max_observed_insert.end(), 0);
     fill(this->cumulative_observed_insert.begin(), this->cumulative_observed_insert.end(), 0);
-    this->print_colored_debug = false;
+    this->print_colored_debug = true;
 
     if (print_colored_debug){
         cerr << RED << "[REGIONAL SUMMARY] chromosome_name: " << contig << ":" << region_start << "-" << region_end << RESET <<endl;
@@ -1054,10 +1054,13 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         }
                     
                     } else {
-                        string ref_base_str{ref_base};
-                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + ref_base_str;
+                        
+                        // string ref_base_str{ref_base};
+                        // clip cigar length to 100
+                        string alt = ref_base + read.sequence.substr(read_index, min(100, cigar.length));
+                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
                             
-                        if(candidate_string.length() >= candidate_length_thresh) {
+                        if(true) {
                             
                             int region_index = (int) (ref_position - 1 - ref_start);
                             
@@ -1253,7 +1256,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 0;
+            bool debug = 1;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
@@ -1281,7 +1284,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             // minimum 2 reads supporting the candidate or frequency is lower than 10
             
             if (allele_depth < candidate_support_threshold) {
-                // cerr << "Skipping candidate at position: " << candidate_position << " as allele depth: " << allele_depth << " is less than candidate_support_threshold: " << candidate_support_threshold << endl;
+                cerr << "Skipping candidate at position: " << candidate_position << " as allele depth: " << allele_depth << " is less than candidate_support_threshold: " << candidate_support_threshold << endl;
                 continue;
             }
             // see if candidate passes the candidate frequency threshold
