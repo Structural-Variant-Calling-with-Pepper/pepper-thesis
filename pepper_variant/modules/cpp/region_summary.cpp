@@ -20,7 +20,7 @@ RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long regi
     this->cumulative_observed_insert.resize(region_end-region_start+1, 0);
     fill(this->max_observed_insert.begin(), this->max_observed_insert.end(), 0);
     fill(this->cumulative_observed_insert.begin(), this->cumulative_observed_insert.end(), 0);
-    this->print_colored_debug = true;
+    this->print_colored_debug = false;
 
     if (print_colored_debug){
         cerr << RED << "[REGIONAL SUMMARY] chromosome_name: " << contig << ":" << region_start << "-" << region_end << RESET <<endl;
@@ -1054,7 +1054,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         }
                     
                     } else {
-                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + ref_base;
+                        string ref_base_str{ref_base};
+                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + ref_base_str;
                             
                         if(candidate_string.length() >= candidate_length_thresh) {
                             
@@ -1252,7 +1253,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 1;
+            bool debug = 0;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
