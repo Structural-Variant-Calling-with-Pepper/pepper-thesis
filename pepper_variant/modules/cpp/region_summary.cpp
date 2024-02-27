@@ -1056,36 +1056,40 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     } else {
                         string ref_base_str{ref_base};
                         string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + ref_base_str;
+                        
+                        cerr << candidate_string << endl;
+                        
+                        // if(candidate_string.length() >= candidate_length_thresh) {
                             
-                        if(candidate_string.length() >= candidate_length_thresh) {
-                            
-                            int region_index = (int) (ref_position - 1 - ref_start);
-                            
-                            insert_count[ref_position - 1 - ref_start] += 1;
+                        int region_index = (int) (ref_position - 1 - ref_start);
+                        
+                        cerr << region_index << endl;
 
-                            if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
-                                AlleleFrequencyMap[region_index][candidate_string] += 1;
-                                if(read.flags.is_reverse) {
-                                    AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
-                                } else {
-                                    AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
-                                }
+                        insert_count[ref_position - 1 - ref_start] += 1;
+
+                        if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
+                            AlleleFrequencyMap[region_index][candidate_string] += 1;
+                            if(read.flags.is_reverse) {
+                                AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
                             } else {
-                                AlleleFrequencyMap[region_index][candidate_string] = 1;
-                                if(read.flags.is_reverse) {
-                                    AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
-                                    AlleleFrequencyMapRevStrand[region_index][candidate_string] = 1;
-                                } else {
-                                    AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 1;
-                                    AlleleFrequencyMapRevStrand[region_index][candidate_string] = 0;
-                                }
+                                AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
                             }
-
-                            if (AlleleMap[region_index].find(candidate_string) == AlleleMap[region_index].end())
-                                AlleleMap[region_index].insert(candidate_string);
+                        } else {
+                            AlleleFrequencyMap[region_index][candidate_string] = 1;
+                            if(read.flags.is_reverse) {
+                                AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
+                                AlleleFrequencyMapRevStrand[region_index][candidate_string] = 1;
+                            } else {
+                                AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 1;
+                                AlleleFrequencyMapRevStrand[region_index][candidate_string] = 0;
+                            }
                         }
 
+                        if (AlleleMap[region_index].find(candidate_string) == AlleleMap[region_index].end())
+                            AlleleMap[region_index].insert(candidate_string);
                     }
+
+                    // }
 
                     int soft_clip_count_index =  get_feature_index(ref_base, 'S', read.flags.is_reverse);
 
