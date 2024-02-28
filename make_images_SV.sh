@@ -10,7 +10,7 @@ REF=${INPUT_DIR}/hs37d5.fa
 TRAIN_OUTPUT=${INPUT_DIR}/PEPPER_TRAIN_IMAGES/high_conf_only
 TEST_OUTPUT=${INPUT_DIR}/PEPPER_TEST_IMAGES/termbreak
 
-THREADS=16
+THREADS=1
 
 for coverage in 50
 do
@@ -22,7 +22,7 @@ do
   -b ${BAM} \
   -f ${REF} \
   -tv ${TRUTH_VCF} \
-  -r 1-22\
+  -r 1:112600000-112700000\
   -rb ${TRUTH_BED} \
   -t ${THREADS} \
   -o ${TRAIN_OUTPUT} \
