@@ -22,7 +22,7 @@ do
   -b ${BAM} \
   -f ${REF} \
   -tv ${TRUTH_VCF} \
-  -r 1:86740013-86742759\
+  -r 1-22\
   -rb ${TRUTH_BED} \
   -t ${THREADS} \
   -o ${TRAIN_OUTPUT} \
