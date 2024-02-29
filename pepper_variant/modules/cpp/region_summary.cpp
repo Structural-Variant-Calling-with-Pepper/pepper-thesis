@@ -8,7 +8,7 @@
 #include "colors.h"
 #include <rapidfuzz/fuzz.hpp>
 
-bool fahmid_check = false;
+bool fahmid_check = true;
 
 RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long region_start, long long region_end, string reference_sequence) {
     this->contig = contig;
@@ -315,12 +315,12 @@ void checkLabels(const vector<char>& labels_hp, int base_index,
         }
     }
 
-    if (fahmid_check) {
-        cerr << BLUE << "in Check Labels:" << endl;
-        cerr << "Length: " << len << endl;
-        cerr << "REF: " << ref << endl << RESET;
+    // if (fahmid_check) {
+    //     cerr << BLUE << "in Check Labels:" << endl;
+    //     cerr << "Length: " << len << endl;
+    //     cerr << "REF: " << ref << endl << RESET;
 
-    }
+    // }
 }
 
 
@@ -867,8 +867,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                             }
 
                             if (fahmid_check) {
-                                cerr << len << endl;
-                                cerr << alt << endl;
+                                // cerr << len << endl;
+                                // cerr << alt << endl;
                             }
                             
                             // save the candidate
@@ -937,8 +937,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 len = len_2;
                             }
                             if (fahmid_check) {
-                                cerr << len << endl;
-                                cerr << ref << endl;
+                                // cerr << len << endl;
+                                // cerr << ref << endl;
                             }
 
                             string candidate_string = char(AlleleType::DELETE_ALLELE + '0') + ref;
@@ -1054,16 +1054,18 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         }
                     
                     } else {
-                        string ref_base_str{ref_base};
-                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + ref_base_str;
-                        
-                        cerr << candidate_string << endl;
+                        // string ref_base_str{ref_base};
+                        // clip cigar length to 100
+                        string alt = ref_base + read.sequence.substr(read_index, min(100, cigar.length));
+                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
+
+                        // cerr << candidate_string << endl;
                         
                         // if(candidate_string.length() >= candidate_length_thresh) {
                             
                         int region_index = (int) (ref_position - 1 - ref_start);
                         
-                        cerr << region_index << endl;
+                        // cerr << region_index << endl;
 
                         insert_count[ref_position - 1 - ref_start] += 1;
 
@@ -1257,7 +1259,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 0;
+            bool debug = 1;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
