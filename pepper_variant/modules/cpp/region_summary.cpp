@@ -8,7 +8,7 @@
 #include "colors.h"
 #include <rapidfuzz/fuzz.hpp>
 
-bool fahmid_check = true;
+bool fahmid_check = false;
 
 RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long region_start, long long region_end, string reference_sequence) {
     this->contig = contig;
@@ -223,6 +223,20 @@ bool check_ref_base(char base) {
        base=='T' || base=='t' ||
        base =='G' || base=='g') return true;
     return false;
+}
+
+string merge_all_scINS(int region_index, const vector< set<string> > &AlleleMap) {
+
+    // iterate over AlleleMap[region_index] and check if there is a match
+    for(auto it = AlleleMap[region_index].begin(); it != AlleleMap[region_index].end(); it++){
+        string existing_candidate = *it;
+        if(existing_candidate.length() <= 102) {
+            return existing_candidate;
+        }
+
+    }
+
+    return "-1";
 }
 
 int checkIfPreviousSCCandidate(int region_index, const vector< map<string, int> >& AlleleFrequencyMap, const string& candidate_string, bool isDel) {
@@ -1054,22 +1068,32 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         }
                     
                     } else {
-                        // string ref_base_str{ref_base};
-                        // clip cigar length to 100
-                        string alt = ref_base + read.sequence.substr(read_index, min(100, cigar.length));
-                        string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
-
                         // cerr << candidate_string << endl;
                         
                         // if(candidate_string.length() >= candidate_length_thresh) {
                             
                         int region_index = (int) (ref_position - 1 - ref_start);
                         
+                        // string ref_base_str{ref_base};
+                        // clip cigar length to 100
+                        
+                        string alt = ref_base + read.sequence.substr(read_index, min(100, cigar.length));
+
+                        string candidate_string = merge_all_scINS(region_index, AlleleMap);
+                        if(candidate_string == "-1") {
+                            candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
+                        }
+                        
+
                         // cerr << region_index << endl;
 
                         insert_count[ref_position - 1 - ref_start] += 1;
 
                         if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
+                            if (fahmid_check) {
+                                cerr << "Region index: " << region_index << endl;
+                            }
+
                             AlleleFrequencyMap[region_index][candidate_string] += 1;
                             if(read.flags.is_reverse) {
                                 AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
@@ -1077,6 +1101,9 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
                             }
                         } else {
+                            if (fahmid_check) {
+                                cerr << "Region index: " << region_index << endl;
+                            }
                             AlleleFrequencyMap[region_index][candidate_string] = 1;
                             if(read.flags.is_reverse) {
                                 AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
@@ -1205,16 +1232,20 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
 
         bool at_least_one_fraction_positive = (insert_fraction >0 || delete_fraction >0);
         bool indel_positive = (insert_fraction >= insert_freq_threshold || delete_fraction >= delete_freq_threshold);
-        if(!indel_positive) {
-            int scan_len = 20;
-            // Instead of checking only one place for insert or delete, check a window of size 100bp centered around the candidate position
-            if (i>scan_len && i<region_size-scan_len){
-                for (int j=i-scan_len; j<i+scan_len; j++){
-                    insert_fraction += (double) insert_count[positions[j]-ref_start] / max(1.0, (double) coverage_vector[positions[j]-ref_start]);
-                    delete_fraction += (double) delete_count[positions[j]-ref_start] / max(1.0, (double) coverage_vector[positions[j]-ref_start]);
-                }
-            }
-        }
+        // if(!indel_positive) {
+        //     int scan_len = 20;
+        //     // Instead of checking only one place for insert or delete, check a window of size 100bp centered around the candidate position
+        //     if (i>scan_len && i<region_size-scan_len){
+        //         for (int j=i-scan_len; j<i+scan_len; j++){
+        //             insert_fraction += (double) insert_count[positions[j]-ref_start] / max(1.0, (double) coverage_vector[positions[j]-ref_start]);
+        //             delete_fraction += (double) delete_count[positions[j]-ref_start] / max(1.0, (double) coverage_vector[positions[j]-ref_start]);
+        //         }
+        //     }
+        // }
+
+        // if (insert_count[positions[i]-ref_start] > 0) {
+        //     cerr << BOLDYELLOW << "Insert fraction: " << insert_fraction << " at position: " << i << " positions[i]: " << positions[i] << " insert_count: " << insert_count[positions[i]-ref_start] << " coverage: " << coverage_vector[positions[i]-ref_start] << RESET << endl;
+        // }
         if(at_least_one_fraction_positive && print_colored_debug){
             cerr << GREEN << "At position: " << i << " positions[i]: " << positions[i] << " snp_fraction: " << snp_fraction << " insert_fraction: " << insert_fraction << " delete_fraction: " << delete_fraction 
             << " delete_count: "<< delete_count[positions[i]-ref_start] << " insert_count: " << insert_count[positions[i]-ref_start] <<" snp_count: " << snp_count[positions[i]-ref_start] << RESET << endl;
@@ -1251,15 +1282,15 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
     vector<CandidateImageSummary> all_candidate_images;
     // at this point all of the images are generated. So we can create the images for each candidate position.
     for(long long candidate_position : filtered_candidate_positions) {
-        // if(print_colored_debug){
-        //     cerr << BOLDCYAN << "Processing candidate position: " << candidate_position << " Relative pos: " << candidate_position - ref_start 
-        //     << " AlleleMapSize: " << AlleleMap[candidate_position - ref_start].size() << RESET << endl;
-        // }
+        if(print_colored_debug){
+            cerr << BOLDCYAN << "Processing candidate position: " << candidate_position << " Relative pos: " << candidate_position - ref_start 
+            << " AlleleMapSize: " << AlleleMap[candidate_position - ref_start].size() << RESET << endl;
+        }
         for (auto it=AlleleMap[candidate_position - ref_start].begin(); it!=AlleleMap[candidate_position - ref_start].end(); ++it) {
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 1;
+            bool debug = 0;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
@@ -1309,6 +1340,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             if((candidate_string[0] == '1' && !snp_threshold_pass[candidate_position - ref_start]) ||
                (candidate_string[0] == '2' && !insert_threshold_pass[candidate_position - ref_start]) ||
                (candidate_string[(is_deletion_end?1:0)] == '3' && !delete_threshold_pass[candidate_position - ref_start])) {
+                // cerr << "Getting dropped cuz Ins Thres is: " << insert_threshold_pass[candidate_position - ref_start] << ", at pos: " << candidate_position << endl;
                 continue;
             }
             

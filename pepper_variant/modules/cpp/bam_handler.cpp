@@ -216,7 +216,7 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
                 case BAM_CEQUAL:
                 case BAM_CSOFT_CLIP:
                     cigar_index = 0;
-                    if(cigar_op == BAM_CSOFT_CLIP && print_colored_debug) cerr << "Soft clip at " << current_read_pos << endl;
+                    // if(cigar_op == BAM_CSOFT_CLIP) cerr << "Soft clip at " << current_read_pos << endl;
                     // cerr << YELLOW << "Fahmid Check in Bam Handler SC, current pos: " << current_read_pos << endl << RESET;
                     // if the current read position is to the left then we jump forward
                     if (current_read_pos < start) {
