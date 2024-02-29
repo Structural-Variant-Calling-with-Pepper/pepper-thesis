@@ -53,5 +53,5 @@ out.txt
 # vscode
 .vscode/
 
-*.sh
-debug.txt
+/*.sh
+/debug.txt
