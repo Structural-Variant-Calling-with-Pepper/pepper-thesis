@@ -225,6 +225,36 @@ bool check_ref_base(char base) {
     return false;
 }
 
+int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<string, int> >& AlleleFrequencyMap) {
+    // Ensure region_index is within the bounds of AlleleFrequencyMap
+    if(region_index < 0 || region_index >= AlleleFrequencyMap.size()) {
+        cerr << "Error: region index out of bound" << endl;
+        // Handle error: region_index is out of bounds
+        return -1;
+    }
+
+    if (fahmid_check) {
+        cerr << "reg index: " << region_index << endl;
+    }
+
+    int movement = 20;
+
+    // Compute left and right limits
+    int left_limit = max(0, region_index - movement);
+    int right_limit = min(static_cast<int>(AlleleFrequencyMap.size()) - 1, region_index + movement);
+    
+    // Iterate from left_limit to right_limit inclusive
+    for (int i = left_limit; i <= right_limit; ++i) {
+        // Check if the candidate_string exists in the current region of AlleleFrequencyMap
+        if (!AlleleFrequencyMap[i].empty()) {
+            return i; // Return the index where candidates are found
+        }
+    }
+
+    return -1;
+}
+
+
 string merge_all_scINS(int region_index, const vector< set<string> > &AlleleMap) {
 
     // iterate over AlleleMap[region_index] and check if there is a match
@@ -1072,8 +1102,17 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         
                         // if(candidate_string.length() >= candidate_length_thresh) {
                             
-                        int region_index = (int) (ref_position - 1 - ref_start);
                         
+                        int region_index = checkIfPreviousSCCandidateNonTrain(ref_position - 1 - ref_start, AlleleFrequencyMap);
+                        // int region_index = -1;
+
+                        if (region_index == -1) {
+                            region_index = (int) (ref_position - 1 - ref_start);
+                        }
+                        
+                        cerr << "Region Index from non train sc: " << region_index << endl;
+                        cerr << "pos: " << region_index + 1 + ref_start << endl;
+
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
                         
