@@ -264,7 +264,7 @@ string merge_all_scINS(int region_index, const vector< set<string> > &AlleleMap)
     // iterate over AlleleMap[region_index] and check if there is a match
     for(auto it = AlleleMap[region_index].begin(); it != AlleleMap[region_index].end(); it++){
         string existing_candidate = *it;
-        if(existing_candidate.length() < 32) {
+        if(existing_candidate.length() <= 33) {
             return existing_candidate;
         }
 
@@ -946,7 +946,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                             int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, false);
                             
                             
-                            if(candidate_string.length() >= candidate_length_thresh) {
+                            if(candidate_string.length() >= 30) {
                                 
                                 if (region_index == -1) {
                                     region_index = (int) (ref_position - 1 - ref_start);
@@ -1041,7 +1041,16 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 }
                             }
 
-                            if(candidate_string.length() >= candidate_length_thresh) {
+                            // if (cigar_i == 0) {
+                            //     if (fahmid_check) {
+                            //         cerr << "Fahmid Check: may be left clip" << endl;
+                            //     }
+                            //     region_end_index = region_index;
+                            //     region_index = (int)ref_behind_index;
+                            // }
+
+
+                            if(candidate_string.length() >= 30) {
                                 if (fahmid_check) {
                                     cerr << "Fahmid Check refpos: " << ref_position << ", refstart: " << ref_start << endl;
                                 
@@ -1136,8 +1145,10 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                             region_index = (int) (ref_position - 1 - ref_start);
                         }
                         
-                        cerr << "Region Index from non train sc: " << region_index << endl;
-                        cerr << "pos: " << region_index + 1 + ref_start << endl;
+                        if (fahmid_check) {
+                            cerr << "Region Index from non train sc: " << region_index << endl;
+                            cerr << "pos: " << region_index + 1 + ref_start << endl;
+                        }
 
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
