@@ -231,7 +231,7 @@ int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<strin
 
     // Ensure region_index is within the bounds of AlleleFrequencyMap
     if(region_index < 0 || region_index >= AlleleFrequencyMap.size()) {
-        cerr << "Error: region index out of bound" << endl
+        cerr << "Error: region index out of bound" << endl;
         // Handle error: region_index is out of bounds
         return -1;
     }
@@ -1142,7 +1142,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
                             
-                        int region_index = (int) (ref_position - 1 - ref_start);
+                        region_index = (int) (ref_position - 1 - ref_start);
                         
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
