@@ -1142,7 +1142,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
                             
-                        region_index = (int) (ref_position - 1 - ref_start);
+                        // region_index = (int) (ref_position - 1 - ref_start);
                         
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
