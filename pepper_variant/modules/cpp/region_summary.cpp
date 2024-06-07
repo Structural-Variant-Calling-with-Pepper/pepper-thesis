@@ -1231,6 +1231,33 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         cerr << "SC read_index: " << read_index << endl;
                     }
 
+
+                    if (cigar_i == 0) {
+                        for (int i = cigar.length; i > 1; i--) {
+                            if (ref_position - i >= ref_start && ref_position - i <= ref_end) {
+                                // update the summary of base
+                                int base_index = (int) (ref_position - ref_start - i + cumulative_observed_insert[ref_position - ref_start - i]);
+                                char ref_base = reference_sequence[ref_position - ref_start - i];
+                                int feature_index = get_feature_index(ref_base, 'S', read.flags.is_reverse);
+
+                                if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
+
+                            }
+                        }
+                    } else {
+                        for (int i = 0; i < cigar.length; i++) {
+                            if (ref_position + i >= ref_start && ref_position + i <= ref_end) {
+                                // update the summary of base
+                                int base_index = (int) (ref_position - ref_start + i + cumulative_observed_insert[ref_position - ref_start + i]);
+                                char ref_base = reference_sequence[ref_position - ref_start + i];
+                                int feature_index = get_feature_index(ref_base, 'S', read.flags.is_reverse);
+
+                                if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
+
+                            }
+                        }
+                    }
+
                 }
 
                 if (cigar_i == 0) {
@@ -1396,7 +1423,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 0;
+            bool debug = 1;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
