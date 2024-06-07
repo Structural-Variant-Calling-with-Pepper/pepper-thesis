@@ -225,10 +225,13 @@ bool check_ref_base(char base) {
     return false;
 }
 
+
+
 int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<string, int> >& AlleleFrequencyMap) {
+
     // Ensure region_index is within the bounds of AlleleFrequencyMap
     if(region_index < 0 || region_index >= AlleleFrequencyMap.size()) {
-        cerr << "Error: region index out of bound" << endl;
+        cerr << "Error: region index out of bound" << endl
         // Handle error: region_index is out of bounds
         return -1;
     }
@@ -242,7 +245,7 @@ int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<strin
     // Compute left and right limits
     int left_limit = max(0, region_index - movement);
     int right_limit = min(static_cast<int>(AlleleFrequencyMap.size()) - 1, region_index + movement);
-    
+
     // Iterate from left_limit to right_limit inclusive
     for (int i = left_limit; i <= right_limit; ++i) {
         // Check if the candidate_string exists in the current region of AlleleFrequencyMap
@@ -255,12 +258,13 @@ int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<strin
 }
 
 
+
 string merge_all_scINS(int region_index, const vector< set<string> > &AlleleMap) {
 
     // iterate over AlleleMap[region_index] and check if there is a match
     for(auto it = AlleleMap[region_index].begin(); it != AlleleMap[region_index].end(); it++){
         string existing_candidate = *it;
-        if(existing_candidate.length() <= 102) {
+        if(existing_candidate.length() < 32) {
             return existing_candidate;
         }
 
@@ -557,7 +561,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
     int cigar_index = 0;
     double base_quality = read.base_qualities[read_index];
     // bool debug_populate_summary = (read.query_name == "SRR9001772.257834");
-    bool debug_populate_summary = (read.query_name == "SRR9001772.906641");
+    bool debug_populate_summary = (read.query_name == "m64012_190921_234837/176095316/ccs") && false;
     char cigarOpMap[11] = {
         [CIGAR_OPERATIONS::MATCH] = 'M',
         [CIGAR_OPERATIONS::IN] = 'I',
@@ -583,8 +587,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
         }
         char cop = cigarOpMap[cigar.operation==CIGAR_OPERATIONS::UNSPECIFIED?10:cigar.operation];
 
-        if (print_colored_debug){
-            // cerr << BOLDWHITE << "cigar: " << cop << " " << cigar.length << RESET << endl;
+        if (debug_populate_summary){
+            cerr << BOLDWHITE << "cigar: " << cop << " " << cigar.length << RESET << endl;
         }
         switch (cigar.operation) {
             case CIGAR_OPERATIONS::EQUAL:
@@ -603,6 +607,9 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     if (ref_position >= ref_start && ref_position <= ref_end) {
                         char base = read.sequence[read_index];
                         char ref_base = reference_sequence[ref_position - ref_start];
+                        if(debug_populate_summary){
+                            // cerr << "Ref: " << ref_base << " Read: " << base << " Ref pos: " << ref_position << " Read pos: " << read_index << endl;   
+                        }
                         string alt(1, read.sequence[read_index]);
 
                         int base_index = (int)(ref_position - ref_start + cumulative_observed_insert[ref_position - ref_start]);
@@ -872,11 +879,25 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                 ref_position += cigar.length;
             
             case CIGAR_OPERATIONS::SOFT_CLIP:
+
+                cigar_index = 0;
+                if (ref_position < ref_start) {
+                        cigar_index = min(ref_start - ref_position, (long long) cigar.length);
+                        read_index += cigar_index;
+                        ref_position += cigar_index;
+                }
                 if (fahmid_check) {
                     cerr << RED << "Fahmid Check for ref pos detection. REFPOS: " << ref_position << endl <<RESET;
                 }
 
+                if (cigar_i == 0) {
+                    // Its left SC so jump!
+                    ref_position += cigar.length - cigar_index;
+                    read_index += cigar.length - cigar_index;
+                }
+
                 if (ref_position -1 >= ref_start && ref_position - 1 <= ref_end) {
+
                     if (fahmid_check) {
                         cerr << GREEN << "Fahmid Check for ref pos detection. REFPOS: " << ref_position << endl <<RESET;
                         cerr << "Fahmid Check ref pos: " << ref_position << endl;
@@ -916,7 +937,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                             }
                             
                             // save the candidate
-                            string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
+                            string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt.substr(0, 30);
                             
                             if (fahmid_check) {
                                 cerr << "Before reg index func call" << endl;
@@ -985,7 +1006,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 // cerr << ref << endl;
                             }
 
-                            string candidate_string = char(AlleleType::DELETE_ALLELE + '0') + ref;
+                            string candidate_string = char(AlleleType::DELETE_ALLELE + '0') + ref.substr(0, 30);
 
                             int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, true);
                             if (region_index == -1) {
@@ -1082,17 +1103,17 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                     AlleleMap[region_end_index].insert('E' + candidate_string);
                                 }
                 
-                                for (int i = 0; i < len; i++) {
-                                    if (ref_position + i >= ref_start && ref_position + i <= ref_end) {
-                                        // update the summary of base
-                                        int base_index = (int) (ref_position - ref_start + i + cumulative_observed_insert[ref_position - ref_start + i]);
-                                        char ref_base = reference_sequence[ref_position - ref_start + i];
-                                        int feature_index = get_feature_index(ref_base, '*', read.flags.is_reverse);
+                                // for (int i = 0; i < len; i++) {
+                                //     if (ref_position + i >= ref_start && ref_position + i <= ref_end) {
+                                //         // update the summary of base
+                                //         int base_index = (int) (ref_position - ref_start + i + cumulative_observed_insert[ref_position - ref_start + i]);
+                                //         char ref_base = reference_sequence[ref_position - ref_start + i];
+                                //         int feature_index = get_feature_index(ref_base, '*', read.flags.is_reverse);
 
-                                        if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
+                                //         if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
 
-                                    }
-                                }
+                                //     }
+                                // }
                             }    
                         
                         }
@@ -1101,11 +1122,16 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         // cerr << candidate_string << endl;
                         
                         // if(candidate_string.length() >= candidate_length_thresh) {
-                            
+
+                        // cerr << candidate_string << endl;
+                        
+                        // if(candidate_string.length() >= candidate_length_thresh) {
                         
                         int region_index = checkIfPreviousSCCandidateNonTrain(ref_position - 1 - ref_start, AlleleFrequencyMap);
                         // int region_index = -1;
 
+                        // cerr << "B4: Region Index from non train sc: " << region_index << endl;
+                        // cerr << "B4: pos: " << region_index + 1 + ref_start << endl;
                         if (region_index == -1) {
                             region_index = (int) (ref_position - 1 - ref_start);
                         }
@@ -1115,12 +1141,35 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
 
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
+                            
+                        int region_index = (int) (ref_position - 1 - ref_start);
                         
-                        string alt = ref_base + read.sequence.substr(read_index, min(100, cigar.length));
+                        // string ref_base_str{ref_base};
+                        // clip cigar length to 100
+                        
+                        int position_start = read_index;
+                        int substr_len = min(30, static_cast<int>(cigar.length));
+
+                        if (cigar_i == 0) {
+                            position_start = read_index - substr_len + 1;
+                        }
+
+                        string substr = read.sequence.substr(position_start, substr_len);
+                        string alt = ref_base + substr;
+
+                        if (cigar_i == 0) {
+                            // reverse(substr.begin(), substr.end());
+                            // alt = ref_base + substr;
+                            alt = substr + ref_base;
+                        }
+
 
                         string candidate_string = merge_all_scINS(region_index, AlleleMap);
+
                         if(candidate_string == "-1") {
                             candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
+                        } else if (candidate_string[0]=='3' || (candidate_string[0] == 'E' && candidate_string[1] == '3')) {
+                            cerr << "Deletion detected" << endl;
                         }
                         
 
@@ -1173,7 +1222,14 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
 
                 }
 
-                read_index += cigar.length;
+                if (cigar_i == 0) {
+                    // Its left SC so revert back
+                    ref_position -= cigar.length - cigar_index;
+                    read_index -= cigar.length - cigar_index;
+                }
+
+                read_index += cigar.length - cigar_index;;
+                ref_position += cigar.length - cigar_index;;
                 break;
             
             case CIGAR_OPERATIONS::HARD_CLIP:
@@ -1323,7 +1379,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
     for(long long candidate_position : filtered_candidate_positions) {
         if(print_colored_debug){
             cerr << BOLDCYAN << "Processing candidate position: " << candidate_position << " Relative pos: " << candidate_position - ref_start 
-            << " AlleleMapSize: " << AlleleMap[candidate_position - ref_start].size() << RESET << endl;
+            << " AlleleMapSize: " << AlleleMap[candidate_position - ref_start].size() <<  ": " << *AlleleMap[candidate_position - ref_start].begin() << RESET << endl;
         }
         for (auto it=AlleleMap[candidate_position - ref_start].begin(); it!=AlleleMap[candidate_position - ref_start].end(); ++it) {
             CandidateImageSummary candidate_summary;
