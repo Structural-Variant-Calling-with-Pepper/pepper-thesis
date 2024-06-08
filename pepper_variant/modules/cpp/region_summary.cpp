@@ -20,7 +20,7 @@ RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long regi
     this->cumulative_observed_insert.resize(region_end-region_start+1, 0);
     fill(this->max_observed_insert.begin(), this->max_observed_insert.end(), 0);
     fill(this->cumulative_observed_insert.begin(), this->cumulative_observed_insert.end(), 0);
-    this->print_colored_debug = true;
+    this->print_colored_debug = false;
 
     if (print_colored_debug){
         cerr << RED << "[REGIONAL SUMMARY] chromosome_name: " << contig << ":" << region_start << "-" << region_end << RESET <<endl;
@@ -1404,6 +1404,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             if (candidate_string[0]=='E'){
                 is_deletion_end = true;
             }
+            bool isSc = candidate_string.length() < 40;
             int allele_depth = AlleleFrequencyMap[candidate_position - ref_start][candidate_string];
             int allele_depth_fwd = AlleleFrequencyMapFwdStrand[candidate_position - ref_start][candidate_string];
             int allele_depth_rev = AlleleFrequencyMapRevStrand[candidate_position - ref_start][candidate_string];
@@ -1475,7 +1476,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                         }
                         bool within_10pc_hap1 = candidate_string.length() >= 0.7 * hap1_max_len && candidate_string.length() <= 1.3 * hap1_max_len;
                         bool within_10pc_hap2 = candidate_string.length() >= 0.7 * hap2_max_len && candidate_string.length() <= 1.3 * hap2_max_len;
-                        if (within_10pc_hap1 || within_10pc_hap2) {
+                        if (within_10pc_hap1 || within_10pc_hap2 || (isSc && (hap1_max_len > 0 || hap2_max_len > 0))) {
                             fixed_base_index = i;
                             break;
                         }
@@ -1568,6 +1569,10 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                     else if (isIndel && alt_hp1.length() >= 0.9 * cand_str.length() && alt_hp1.length() <= 1.1 * cand_str.length()) {
                         found_in_hp1 = true;
                     }
+                    // For SC handling (after clipping to 30 length)
+                    else if(isSc && alt_hp1.substr(0, 30).length() >= 0.7 * cand_str.length() && alt_hp1.substr(0, 30).length() <= 1.3 * cand_str.length()) {
+                        found_in_hp1 = true;
+                    }
                     
                 }
 
@@ -1578,6 +1583,9 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                         found_in_hp2 = true;
                     }
                     else if (isIndel && alt_hp2.length() >= 0.9 * cand_str.length() && alt_hp2.length() <= 1.1 * cand_str.length()) {
+                        found_in_hp2 = true;
+                    }
+                    else if(isSc && alt_hp2.substr(0, 30).length() >= 0.7 * cand_str.length() && alt_hp2.substr(0, 30).length() <= 1.3 * cand_str.length()) {
                         found_in_hp2 = true;
                     }
                 }
@@ -1657,7 +1665,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                 candidate_summary.image_matrix[mid_index][reverse_feature_index] = (-1) * candidate_summary.image_matrix[mid_index][reverse_feature_index];
                 candidate_summary.candidates.push_back(candidate_string);
                 candidate_summary.candidate_frequency.push_back(min(allele_depth, ImageOptionsRegion::MAX_COLOR_VALUE));
-            } else if (insert_threshold_pass[candidate_position - ref_start] && candidate_string[0] == '2') {
+            } else if (insert_threshold_pass[candidate_position - ref_start] && candidate_string[0] == '2' && !isSc) {
                 if(debug) {
                     cout << "INSERT" << " " << candidate_string << ",";
                     cout << AlleleFrequencyMap[candidate_position - ref_start][candidate_string] << endl;
@@ -1672,7 +1680,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                 candidate_summary.image_matrix[mid_index][reverse_feature_index] = (-1) * candidate_summary.image_matrix[mid_index][reverse_feature_index];
                 candidate_summary.candidates.push_back(candidate_string);
                 candidate_summary.candidate_frequency.push_back(min(allele_depth, ImageOptionsRegion::MAX_COLOR_VALUE));
-            } else if (delete_threshold_pass[candidate_position - ref_start] && candidate_string[(is_deletion_end?1:0)] == '3') {
+            } else if (delete_threshold_pass[candidate_position - ref_start] && candidate_string[(is_deletion_end?1:0)] == '3' && !isSc) {
                 if(debug) {
                     cout << "DELETE: " << candidate_string << ",";
                     cout << AlleleFrequencyMap[candidate_position - ref_start][candidate_string] << endl;
@@ -1709,6 +1717,20 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                         candidate_summary.image_matrix[idx][reverse_feature_index] = (-1) * candidate_summary.image_matrix[idx][reverse_feature_index];
                     }
                 }
+            } else if ( isSc && ((insert_threshold_pass[candidate_position - ref_start] && candidate_string[0] == '2') ||
+                        (delete_threshold_pass[candidate_position - ref_start] && candidate_string[(is_deletion_end?1:0)] == '3'))){
+                if(debug) {
+                    cout << "SOFTCLIP: " << candidate_string << ",";
+                    cout << AlleleFrequencyMap[candidate_position - ref_start][candidate_string] << endl;
+                }
+                int forward_feature_index = get_feature_index(ref_base, 'S', false); 
+                int reverse_feature_index = get_feature_index(ref_base, 'S', true);
+                for(int i=0; i < candidate_window_size; i++) {
+                    candidate_summary.image_matrix[i][forward_feature_index] = (-1) * candidate_summary.image_matrix[i][forward_feature_index];
+                    candidate_summary.image_matrix[i][reverse_feature_index] = (-1) * candidate_summary.image_matrix[i][reverse_feature_index];
+                }
+                candidate_summary.candidates.push_back(candidate_string);
+                candidate_summary.candidate_frequency.push_back(min(allele_depth, ImageOptionsRegion::MAX_COLOR_VALUE));
             }
             all_candidate_images.push_back(candidate_summary);
             if(debug) {
