@@ -20,10 +20,10 @@ class AlignmentSummarizer:
         self.chromosome_name = chromosome_name
         self.region_start_position = region_start
         self.region_end_position = region_end
-        self.print_colored_debug = True
+        self.print_colored_debug = False
 
     @staticmethod
-    def range_intersection_bed(interval, bed_intervals):
+    def range_intersection_bed(interval, bed_intervals, options):
         left = interval[0]
         right = interval[1]
 
@@ -37,14 +37,16 @@ class AlignmentSummarizer:
             elif bed_left > right:
                 continue
             else:
-                # left_bed = max(left, bed_left)
-                # right_bed = min(right, bed_right)
-                left_bed = bed_left
-                right_bed = bed_right
-                if i == 0 and left_bed < 300:
-                    left_bed = 301
-                elif i == len(bed_intervals) - 1:
-                    right_bed -= 301
+                if not options.train_mode:
+                    left_bed = max(left, bed_left)
+                    right_bed = min(right, bed_right)
+                else:
+                    left_bed = bed_left
+                    right_bed = bed_right
+                    if i == 0 and left_bed < 300:
+                        left_bed = 301
+                    elif i == len(bed_intervals) - 1:
+                        right_bed -= 301
                 
                 intervals.append([left_bed, right_bed])
 
@@ -111,7 +113,7 @@ class AlignmentSummarizer:
         if bed_list is not None:
             intersected_truth_regions = []
             if self.chromosome_name in bed_list.keys():
-                reg = AlignmentSummarizer.range_intersection_bed([self.region_start_position, self.region_end_position], bed_list[self.chromosome_name])
+                reg = AlignmentSummarizer.range_intersection_bed([self.region_start_position, self.region_end_position], bed_list[self.chromosome_name], options)
                 intersected_truth_regions.extend(reg)
             truth_regions = intersected_truth_regions
         if options.train_mode:
