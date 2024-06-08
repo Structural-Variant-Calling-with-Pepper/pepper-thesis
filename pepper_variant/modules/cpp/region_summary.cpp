@@ -852,7 +852,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     }
                     // cout<<"DEL: "<<ref_position<<" "<<ref<<" "<<alt<<" "<<AlleleFrequencyMap[candidate_alt]<<endl;
                     for (int i = 0; i < cigar.length; i++) {
-                        if ((region_index + 1 + i) >= ref_start && (region_index + 1 + i)<= ref_end) {
+                        if ((region_index + 1 + i) >= 0 && (region_index + 1 + i) < reference_sequence.size()) {
                             // update the summary of base
                             int base_index = (int) (region_index + 1 + i + cumulative_observed_insert[region_index + 1 + i]);
                             char ref_base = reference_sequence[region_index + 1 + i];
