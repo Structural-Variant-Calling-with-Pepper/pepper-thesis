@@ -582,8 +582,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
         }
         char cop = cigarOpMap[cigar.operation==CIGAR_OPERATIONS::UNSPECIFIED?10:cigar.operation];
 
-        if (print_colored_debug){
-            // cerr << BOLDWHITE << "cigar: " << cop << " " << cigar.length << RESET << endl;
+        if (debug_populate_summary){
+            cerr << BOLDWHITE << "cigar: " << cop << " " << cigar.length << RESET << endl;
         }
         switch (cigar.operation) {
             case CIGAR_OPERATIONS::EQUAL:
@@ -602,6 +602,9 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     if (ref_position >= ref_start && ref_position <= ref_end) {
                         char base = read.sequence[read_index];
                         char ref_base = reference_sequence[ref_position - ref_start];
+                        if(debug_populate_summary){
+                            // cerr << "Ref: " << ref_base << " Read: " << base << " Ref pos: " << ref_position << " Read pos: " << read_index << endl;   
+                        }
                         string alt(1, read.sequence[read_index]);
 
                         int base_index = (int)(ref_position - ref_start + cumulative_observed_insert[ref_position - ref_start]);
@@ -871,10 +874,20 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                 ref_position += cigar.length;
             
             case CIGAR_OPERATIONS::SOFT_CLIP:
+                cigar_index = 0;
+                if (ref_position < ref_start) {
+                        cigar_index = min(ref_start - ref_position, (long long) cigar.length);
+                        read_index += cigar_index;
+                        ref_position += cigar_index;
+                }
                 if (fahmid_check) {
                     cerr << RED << "Fahmid Check for ref pos detection. REFPOS: " << ref_position << endl <<RESET;
                 }
-
+                if (cigar_i == 0){
+                    // if the first cigar is softclip, then we mark it at the end of the clip
+                    read_index += cigar.length - cigar_index;
+                    ref_position += cigar.length - cigar_index;
+                }
                 if (ref_position -1 >= ref_start && ref_position - 1 <= ref_end) {
                     if (fahmid_check) {
                         cerr << GREEN << "Fahmid Check for ref pos detection. REFPOS: " << ref_position << endl <<RESET;
@@ -1210,8 +1223,13 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         }
                     }
                 }
- 
-                read_index += cigar.length;
+                if (cigar_i == 0){
+                    // undo the read_index increment for the first softclip
+                    read_index -= cigar.length - cigar_index;
+                    ref_position -= cigar.length - cigar_index;
+                }
+                read_index += cigar.length - cigar_index;
+                ref_position += cigar.length - cigar_index;
                 break;
             
             case CIGAR_OPERATIONS::HARD_CLIP:
