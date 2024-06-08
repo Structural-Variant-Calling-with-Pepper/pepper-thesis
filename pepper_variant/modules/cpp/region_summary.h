@@ -197,7 +197,8 @@ public:
                                  vector< set<string> > &AlleleMap,
                                  type_read read,
                                  double min_snp_baseq,
-                                 double min_indel_baseq);
+                                 double min_indel_baseq,
+                                 bool train_mode);
 
 
     static int get_feature_index(char ref_base, char base, bool is_reverse);
