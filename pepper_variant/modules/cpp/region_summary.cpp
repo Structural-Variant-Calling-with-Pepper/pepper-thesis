@@ -697,7 +697,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
 
                     // only process candidates that are smaller than 50bp as they 50bp+ means SV
-                    if(candidate_string.length() >= candidate_length_thresh && base_quality >= min_indel_baseq * len) {
+                    if(candidate_string.length() - 1>= candidate_length_thresh && base_quality >= min_indel_baseq * len) {
                         // if(insert_count_index >= 0) image_matrix[base_index][insert_count_index] -= 1;
                         // insert_count[ref_position - 1 - ref_start] += 1;
                         int region_index = (int) (ref_position - 1 - ref_start);
@@ -787,7 +787,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     // only process candidates that are smaller than 50bp as they 50bp+ means SV
                     // no base-quality check for deletes
                     // modified to pick up deletion candidates of larger lengths
-                    if(candidate_string.length() >= candidate_length_thresh) {
+                    if(candidate_string.length() - 1>= candidate_length_thresh) {
                         for(int i = max(0, region_index - del_merge_window); i < min(int(AlleleMap.size()), region_index + del_merge_window); i++){
                             bool found = false;
                             // iterate over AlleleMap[region_index] and check if there is a match
@@ -1307,6 +1307,15 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
 
             populate_summary_matrix(image_matrix, coverage_vector, snp_count, insert_count, delete_count,
                                     AlleleFrequencyMap, AlleleFrequencyMapFwdStrand, AlleleFrequencyMapRevStrand, AlleleMap, read, min_snp_baseq, min_indel_baseq, train_mode);
+            // sc alada krbo
+            // ins
+            // position of lsc theke shamne jabo until window ends
+            // next sc find krbo
+            // rsc --- > ins
+            // del (not ins is easier may be)
+            // position of rsc theke shamne jabo until window ends
+            // next sc find krbo
+            // lsc --- > del
         }
     }
   
