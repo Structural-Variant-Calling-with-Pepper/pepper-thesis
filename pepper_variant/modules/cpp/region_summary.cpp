@@ -291,7 +291,7 @@ int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<strin
         cerr << "reg index: " << region_index << endl;
     }
 
-    int movement = 20;
+    int movement = 25;
 
     // Compute left and right limits
     int left_limit = max(0, region_index - movement);
