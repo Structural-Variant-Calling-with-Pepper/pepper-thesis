@@ -20,7 +20,7 @@ RegionalSummaryGenerator::RegionalSummaryGenerator(string contig, long long regi
     this->cumulative_observed_insert.resize(region_end-region_start+1, 0);
     fill(this->max_observed_insert.begin(), this->max_observed_insert.end(), 0);
     fill(this->cumulative_observed_insert.begin(), this->cumulative_observed_insert.end(), 0);
-    this->print_colored_debug = false;
+    this->print_colored_debug = true;
 
     if (print_colored_debug){
         cerr << RED << "[REGIONAL SUMMARY] chromosome_name: " << contig << ":" << region_start << "-" << region_end << RESET <<endl;
@@ -225,40 +225,6 @@ bool check_ref_base(char base) {
     return false;
 }
 
-
-
-int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<string, int> >& AlleleFrequencyMap) {
-
-    // Ensure region_index is within the bounds of AlleleFrequencyMap
-    if(region_index < 0 || region_index >= AlleleFrequencyMap.size()) {
-        cerr << "Error: region index out of bound" << endl;
-        // Handle error: region_index is out of bounds
-        return -1;
-    }
-
-    if (fahmid_check) {
-        cerr << "reg index: " << region_index << endl;
-    }
-
-    int movement = 20;
-
-    // Compute left and right limits
-    int left_limit = max(0, region_index - movement);
-    int right_limit = min(static_cast<int>(AlleleFrequencyMap.size()) - 1, region_index + movement);
-
-    // Iterate from left_limit to right_limit inclusive
-    for (int i = left_limit; i <= right_limit; ++i) {
-        // Check if the candidate_string exists in the current region of AlleleFrequencyMap
-        if (!AlleleFrequencyMap[i].empty()) {
-            return i; // Return the index where candidates are found
-        }
-    }
-
-    return -1;
-}
-
-
-
 string merge_all_scINS(int region_index, const vector< set<string> > &AlleleMap) {
 
     // iterate over AlleleMap[region_index] and check if there is a match
@@ -310,6 +276,35 @@ int checkIfPreviousSCCandidate(int region_index, const vector< map<string, int> 
             }
         }
     }
+    return -1;
+}
+
+int checkIfPreviousSCCandidateNonTrain(int region_index, const vector< map<string, int> >& AlleleFrequencyMap) {
+    // Ensure region_index is within the bounds of AlleleFrequencyMap
+    if(region_index < 0 || region_index >= AlleleFrequencyMap.size()) {
+        cerr << "Error: region index out of bound" << endl;
+        // Handle error: region_index is out of bounds
+        return -1;
+    }
+
+    if (fahmid_check) {
+        cerr << "reg index: " << region_index << endl;
+    }
+
+    int movement = 20;
+
+    // Compute left and right limits
+    int left_limit = max(0, region_index - movement);
+    int right_limit = min(static_cast<int>(AlleleFrequencyMap.size()) - 1, region_index + movement);
+
+    // Iterate from left_limit to right_limit inclusive
+    for (int i = left_limit; i <= right_limit; ++i) {
+        // Check if the candidate_string exists in the current region of AlleleFrequencyMap
+        if (!AlleleFrequencyMap[i].empty()) {
+            return i; // Return the index where candidates are found
+        }
+    }
+
     return -1;
 }
 
@@ -561,7 +556,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
     int cigar_index = 0;
     double base_quality = read.base_qualities[read_index];
     // bool debug_populate_summary = (read.query_name == "SRR9001772.257834");
-    bool debug_populate_summary = (read.query_name == "m64012_190921_234837/176095316/ccs") && false;
+    bool debug_populate_summary = (read.query_name == "m64015_190920_185703/126223666/ccs") && print_colored_debug;
     char cigarOpMap[11] = {
         [CIGAR_OPERATIONS::MATCH] = 'M',
         [CIGAR_OPERATIONS::IN] = 'I',
@@ -857,7 +852,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     }
                     // cout<<"DEL: "<<ref_position<<" "<<ref<<" "<<alt<<" "<<AlleleFrequencyMap[candidate_alt]<<endl;
                     for (int i = 0; i < cigar.length; i++) {
-                        if ((region_index + 1 + i) >= ref_start && (region_index + 1 + i)<= ref_end) {
+                        if ((region_index + 1 + i) >= 0 && (region_index + 1 + i) < reference_sequence.size()) {
                             // update the summary of base
                             int base_index = (int) (region_index + 1 + i + cumulative_observed_insert[region_index + 1 + i]);
                             char ref_base = reference_sequence[region_index + 1 + i];
@@ -879,7 +874,6 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                 ref_position += cigar.length;
             
             case CIGAR_OPERATIONS::SOFT_CLIP:
-
                 cigar_index = 0;
                 if (ref_position < ref_start) {
                         cigar_index = min(ref_start - ref_position, (long long) cigar.length);
@@ -889,15 +883,12 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                 if (fahmid_check) {
                     cerr << RED << "Fahmid Check for ref pos detection. REFPOS: " << ref_position << endl <<RESET;
                 }
-
-                if (cigar_i == 0) {
-                    // Its left SC so jump!
-                    ref_position += cigar.length - cigar_index;
+                if (cigar_i == 0){
+                    // if the first cigar is softclip, then we mark it at the end of the clip
                     read_index += cigar.length - cigar_index;
+                    ref_position += cigar.length - cigar_index;
                 }
-
                 if (ref_position -1 >= ref_start && ref_position - 1 <= ref_end) {
-
                     if (fahmid_check) {
                         cerr << GREEN << "Fahmid Check for ref pos detection. REFPOS: " << ref_position << endl <<RESET;
                         cerr << "Fahmid Check ref pos: " << ref_position << endl;
@@ -945,14 +936,13 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
 
                             int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, false);
                             
-                            
                             if(candidate_string.length() >= 30) {
                                 
                                 if (region_index == -1) {
                                     region_index = (int) (ref_position - 1 - ref_start);
                                 }
                                 
-                                insert_count[ref_position - 1 - ref_start] += 1;
+                                insert_count[region_index] += 1;
 
                                 if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
                                     AlleleFrequencyMap[region_index][candidate_string] += 1;
@@ -1041,15 +1031,6 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 }
                             }
 
-                            // if (cigar_i == 0) {
-                            //     if (fahmid_check) {
-                            //         cerr << "Fahmid Check: may be left clip" << endl;
-                            //     }
-                            //     region_end_index = region_index;
-                            //     region_index = (int)ref_behind_index;
-                            // }
-
-
                             if(candidate_string.length() >= 30) {
                                 if (fahmid_check) {
                                     cerr << "Fahmid Check refpos: " << ref_position << ", refstart: " << ref_start << endl;
@@ -1131,29 +1112,18 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         // cerr << candidate_string << endl;
                         
                         // if(candidate_string.length() >= candidate_length_thresh) {
-
-                        // cerr << candidate_string << endl;
-                        
-                        // if(candidate_string.length() >= candidate_length_thresh) {
-                        
+                            
                         int region_index = checkIfPreviousSCCandidateNonTrain(ref_position - 1 - ref_start, AlleleFrequencyMap);
                         // int region_index = -1;
 
-                        // cerr << "B4: Region Index from non train sc: " << region_index << endl;
-                        // cerr << "B4: pos: " << region_index + 1 + ref_start << endl;
                         if (region_index == -1) {
                             region_index = (int) (ref_position - 1 - ref_start);
                         }
-                        
-                        if (fahmid_check) {
+
+                        if(fahmid_check){
                             cerr << "Region Index from non train sc: " << region_index << endl;
                             cerr << "pos: " << region_index + 1 + ref_start << endl;
                         }
-
-                        // string ref_base_str{ref_base};
-                        // clip cigar length to 100
-                            
-                        // region_index = (int) (ref_position - 1 - ref_start);
                         
                         // string ref_base_str{ref_base};
                         // clip cigar length to 100
@@ -1174,19 +1144,15 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                             alt = substr + ref_base;
                         }
 
-
                         string candidate_string = merge_all_scINS(region_index, AlleleMap);
-
                         if(candidate_string == "-1") {
                             candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
-                        } else if (candidate_string[0]=='3' || (candidate_string[0] == 'E' && candidate_string[1] == '3')) {
-                            cerr << "Deletion detected" << endl;
                         }
                         
 
                         // cerr << region_index << endl;
 
-                        insert_count[ref_position - 1 - ref_start] += 1;
+                        insert_count[region_index] += 1;
 
                         if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
                             if (fahmid_check) {
@@ -1230,8 +1196,6 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     if (fahmid_check){
                         cerr << "SC read_index: " << read_index << endl;
                     }
-
-
                     if (cigar_i == 0) {
                         for (int i = cigar.length; i > 1; i--) {
                             if (ref_position - i >= ref_start && ref_position - i <= ref_end) {
@@ -1257,17 +1221,14 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                             }
                         }
                     }
-
                 }
-
-                if (cigar_i == 0) {
-                    // Its left SC so revert back
-                    ref_position -= cigar.length - cigar_index;
+                if (cigar_i == 0){
+                    // undo the read_index increment for the first softclip
                     read_index -= cigar.length - cigar_index;
+                    ref_position -= cigar.length - cigar_index;
                 }
-
-                read_index += cigar.length - cigar_index;;
-                ref_position += cigar.length - cigar_index;;
+                read_index += cigar.length - cigar_index;
+                ref_position += cigar.length - cigar_index;
                 break;
             
             case CIGAR_OPERATIONS::HARD_CLIP:
@@ -1442,6 +1403,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             if (candidate_string[0]=='E'){
                 is_deletion_end = true;
             }
+            bool isSc = candidate_string.length() < 40;
             int allele_depth = AlleleFrequencyMap[candidate_position - ref_start][candidate_string];
             int allele_depth_fwd = AlleleFrequencyMapFwdStrand[candidate_position - ref_start][candidate_string];
             int allele_depth_rev = AlleleFrequencyMapRevStrand[candidate_position - ref_start][candidate_string];
@@ -1513,7 +1475,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                         }
                         bool within_10pc_hap1 = candidate_string.length() >= 0.7 * hap1_max_len && candidate_string.length() <= 1.3 * hap1_max_len;
                         bool within_10pc_hap2 = candidate_string.length() >= 0.7 * hap2_max_len && candidate_string.length() <= 1.3 * hap2_max_len;
-                        if (within_10pc_hap1 || within_10pc_hap2) {
+                        if (within_10pc_hap1 || within_10pc_hap2 || (isSc && (hap1_max_len > 0 || hap2_max_len > 0))) {
                             fixed_base_index = i;
                             break;
                         }
@@ -1606,6 +1568,10 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                     else if (isIndel && alt_hp1.length() >= 0.9 * cand_str.length() && alt_hp1.length() <= 1.1 * cand_str.length()) {
                         found_in_hp1 = true;
                     }
+                    // For SC handling (after clipping to 30 length)
+                    else if(isSc && alt_hp1.substr(0, 30).length() >= 0.7 * cand_str.length() && alt_hp1.substr(0, 30).length() <= 1.3 * cand_str.length()) {
+                        found_in_hp1 = true;
+                    }
                     
                 }
 
@@ -1616,6 +1582,9 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                         found_in_hp2 = true;
                     }
                     else if (isIndel && alt_hp2.length() >= 0.9 * cand_str.length() && alt_hp2.length() <= 1.1 * cand_str.length()) {
+                        found_in_hp2 = true;
+                    }
+                    else if(isSc && alt_hp2.substr(0, 30).length() >= 0.7 * cand_str.length() && alt_hp2.substr(0, 30).length() <= 1.3 * cand_str.length()) {
                         found_in_hp2 = true;
                     }
                 }
@@ -1695,7 +1664,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                 candidate_summary.image_matrix[mid_index][reverse_feature_index] = (-1) * candidate_summary.image_matrix[mid_index][reverse_feature_index];
                 candidate_summary.candidates.push_back(candidate_string);
                 candidate_summary.candidate_frequency.push_back(min(allele_depth, ImageOptionsRegion::MAX_COLOR_VALUE));
-            } else if (insert_threshold_pass[candidate_position - ref_start] && candidate_string[0] == '2') {
+            } else if (insert_threshold_pass[candidate_position - ref_start] && candidate_string[0] == '2' && !isSc) {
                 if(debug) {
                     cout << "INSERT" << " " << candidate_string << ",";
                     cout << AlleleFrequencyMap[candidate_position - ref_start][candidate_string] << endl;
@@ -1710,7 +1679,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                 candidate_summary.image_matrix[mid_index][reverse_feature_index] = (-1) * candidate_summary.image_matrix[mid_index][reverse_feature_index];
                 candidate_summary.candidates.push_back(candidate_string);
                 candidate_summary.candidate_frequency.push_back(min(allele_depth, ImageOptionsRegion::MAX_COLOR_VALUE));
-            } else if (delete_threshold_pass[candidate_position - ref_start] && candidate_string[(is_deletion_end?1:0)] == '3') {
+            } else if (delete_threshold_pass[candidate_position - ref_start] && candidate_string[(is_deletion_end?1:0)] == '3' && !isSc) {
                 if(debug) {
                     cout << "DELETE: " << candidate_string << ",";
                     cout << AlleleFrequencyMap[candidate_position - ref_start][candidate_string] << endl;
@@ -1747,6 +1716,20 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
                         candidate_summary.image_matrix[idx][reverse_feature_index] = (-1) * candidate_summary.image_matrix[idx][reverse_feature_index];
                     }
                 }
+            } else if ( isSc && ((insert_threshold_pass[candidate_position - ref_start] && candidate_string[0] == '2') ||
+                        (delete_threshold_pass[candidate_position - ref_start] && candidate_string[(is_deletion_end?1:0)] == '3'))){
+                if(debug) {
+                    cout << "SOFTCLIP: " << candidate_string << ",";
+                    cout << AlleleFrequencyMap[candidate_position - ref_start][candidate_string] << endl;
+                }
+                int forward_feature_index = get_feature_index(ref_base, 'S', false); 
+                int reverse_feature_index = get_feature_index(ref_base, 'S', true);
+                for(int i=0; i < candidate_window_size; i++) {
+                    candidate_summary.image_matrix[i][forward_feature_index] = (-1) * candidate_summary.image_matrix[i][forward_feature_index];
+                    candidate_summary.image_matrix[i][reverse_feature_index] = (-1) * candidate_summary.image_matrix[i][reverse_feature_index];
+                }
+                candidate_summary.candidates.push_back(candidate_string);
+                candidate_summary.candidate_frequency.push_back(min(allele_depth, ImageOptionsRegion::MAX_COLOR_VALUE));
             }
             all_candidate_images.push_back(candidate_summary);
             if(debug) {
