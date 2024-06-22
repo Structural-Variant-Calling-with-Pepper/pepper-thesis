@@ -1384,7 +1384,7 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             CandidateImageSummary candidate_summary;
             candidate_summary.contig = contig;
             candidate_summary.position = candidate_position;
-            bool debug = 1;
+            bool debug = 0;
             if(debug) {
                 cout << "-------------------------START----------------------------------------" << endl;
                 cout << "Candidate position: " << candidate_position << endl;
