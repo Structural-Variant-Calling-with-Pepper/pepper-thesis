@@ -631,7 +631,10 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                         // For picking negative examples
                         // if (ref_position == (ref_start + ref_end) / 2){
                             snp_count[ref_position - ref_start] += 1;
-                            if(feature_index >= 0) image_matrix[base_index][feature_index] -= 1;
+                            if(feature_index >= 0) {
+                                image_matrix[base_index][feature_index] -= 1;
+                                image_matrix[base_index][1] += 1;
+                            }
                             // save the candidate
                             string candidate_string = char(AlleleType::SNP_ALLELE + '0') + alt;
 
@@ -641,17 +644,21 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 AlleleFrequencyMap[region_index][candidate_string] += 1;
                                 if(read.flags.is_reverse) {
                                     AlleleFrequencyMapRevStrand[region_index][candidate_string] += 1;
+                                    image_matrix[region_index][16] += 1;
                                 } else {
                                     AlleleFrequencyMapFwdStrand[region_index][candidate_string] += 1;
+                                    image_matrix[region_index][5] += 1;
                                 }
                             } else {
                                 AlleleFrequencyMap[region_index][candidate_string] = 1;
                                 if(read.flags.is_reverse) {
                                     AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 0;
                                     AlleleFrequencyMapRevStrand[region_index][candidate_string] = 1;
+                                    image_matrix[region_index][16] = 1;
                                 } else {
                                     AlleleFrequencyMapFwdStrand[region_index][candidate_string] = 1;
                                     AlleleFrequencyMapRevStrand[region_index][candidate_string] = 0;
+                                    image_matrix[region_index][5] = 1;
                                 }
                             }
 
@@ -697,7 +704,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     string candidate_string = char(AlleleType::INSERT_ALLELE + '0') + alt;
 
                     // only process candidates that are smaller than 50bp as they 50bp+ means SV
-                    if(candidate_string.length() >= candidate_length_thresh && base_quality >= min_indel_baseq * len) {
+                    if(candidate_string.length() - 1 >= candidate_length_thresh && base_quality >= min_indel_baseq * len) {
                         // if(insert_count_index >= 0) image_matrix[base_index][insert_count_index] -= 1;
                         // insert_count[ref_position - 1 - ref_start] += 1;
                         int region_index = (int) (ref_position - 1 - ref_start);
@@ -787,7 +794,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                     // only process candidates that are smaller than 50bp as they 50bp+ means SV
                     // no base-quality check for deletes
                     // modified to pick up deletion candidates of larger lengths
-                    if(candidate_string.length() >= candidate_length_thresh) {
+                    if(candidate_string.length() - 1 >= candidate_length_thresh) {
                         for(int i = max(0, region_index - del_merge_window); i < min(int(AlleleMap.size()), region_index + del_merge_window); i++){
                             bool found = false;
                             // iterate over AlleleMap[region_index] and check if there is a match
@@ -936,14 +943,13 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
 
                             int region_index = checkIfPreviousSCCandidate(ref_position - 1 - ref_start, AlleleFrequencyMap, candidate_string, false);
                             
-                            
                             if(candidate_string.length() >= 30) {
                                 
                                 if (region_index == -1) {
                                     region_index = (int) (ref_position - 1 - ref_start);
                                 }
                                 
-                                insert_count[ref_position - 1 - ref_start] += 1;
+                                insert_count[region_index] += 1;
 
                                 if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
                                     AlleleFrequencyMap[region_index][candidate_string] += 1;
@@ -1153,7 +1159,7 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
 
                         // cerr << region_index << endl;
 
-                        insert_count[ref_position - 1 - ref_start] += 1;
+                        insert_count[region_index] += 1;
 
                         if (AlleleFrequencyMap[region_index].find(candidate_string) != AlleleFrequencyMap[region_index].end()) {
                             if (fahmid_check) {
@@ -1203,7 +1209,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 // update the summary of base
                                 int base_index = (int) (ref_position - ref_start - i + cumulative_observed_insert[ref_position - ref_start - i]);
                                 char ref_base = reference_sequence[ref_position - ref_start - i];
-                                int feature_index = get_feature_index(ref_base, 'S', read.flags.is_reverse);
+                                // int feature_index = get_feature_index(ref_base, 'S', read.flags.is_reverse);
+                                int feature_index = 26;
 
                                 if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
 
@@ -1215,7 +1222,8 @@ void RegionalSummaryGenerator::populate_summary_matrix(vector< vector<int> >& im
                                 // update the summary of base
                                 int base_index = (int) (ref_position - ref_start + i + cumulative_observed_insert[ref_position - ref_start + i]);
                                 char ref_base = reference_sequence[ref_position - ref_start + i];
-                                int feature_index = get_feature_index(ref_base, 'S', read.flags.is_reverse);
+                                // int feature_index = get_feature_index(ref_base, 'S', read.flags.is_reverse);
+                                int feature_index = 27;
 
                                 if(feature_index >= 0)  image_matrix[base_index][feature_index] -= 1;
 
@@ -1441,6 +1449,19 @@ vector<CandidateImageSummary> RegionalSummaryGenerator::generate_summary(vector 
             }
             
             int base_index = (int) (candidate_position - ref_start + cumulative_observed_insert[candidate_position - ref_start]);
+            // if(candidate_string[0]=='2'){
+            //     int total_snps_greater_than_5 = 0;
+            //     for(int pos = base_index - 10; pos < base_index + 10; pos++){
+            //         if(pos < 0 || pos >= region_size) continue;
+            //         if(image_matrix[pos][1] >= 5) total_snps_greater_than_5++;
+            //     }
+            //     if (total_snps_greater_than_5 >= 4) {
+            //         if(print_colored_debug){
+            //             cerr << "Skipping candidate at position: " << candidate_position << " as total_snps_greater_than_5: " << total_snps_greater_than_5 << " is greater than 4" << endl;
+            //         }
+            //         continue;
+            //     };
+            // }
             char ref_base = reference_sequence[candidate_position - ref_start];
             if (train_mode) {
                 vector<type_truth_record> hp1_truths = hp1_truth_alleles[base_index];
