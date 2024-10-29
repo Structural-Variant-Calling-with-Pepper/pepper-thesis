@@ -4,6 +4,7 @@ from pepper_variant.build import PEPPER_VARIANT
 import collections
 import math
 import numpy as np
+import sys
 
 
 class VCFWriter:
@@ -36,6 +37,15 @@ class VCFWriter:
 
             qual = 10
             alleles = tuple([ref_allele]) + tuple(alts)
+            # sys.stderr.write(f"{ref_start}, {ref_end}, {qual}, {alleles}, {genotype}, {depth}, {variant_allele_support}\n\n")
+            # # also print type for each
+            # sys.stderr.write(f"Type of ref_start: {type(ref_start)}\n")
+            # sys.stderr.write(f"Type of ref_end: {type(ref_end)}\n")
+            # sys.stderr.write(f"Type of qual: {type(qual)}\n")
+            # sys.stderr.write(f"Type of alleles: {type(alleles)}\n")
+            # sys.stderr.write(f"Type of genotype: {type(genotype)}\n")
+            # sys.stderr.write(f"Type of depth: {type(depth)}\n")
+            # sys.stderr.write(f"Type of variant_allele_support: {type(variant_allele_support)}\n\n")
             vcf_record = self.vcf_file.new_record(contig=str(contig), start=ref_start,
                                                   stop=ref_end, id='.', qual=qual,
                                                   filter='PASS', alleles=alleles, GT=genotype,
