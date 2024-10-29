@@ -217,6 +217,11 @@ class ImageGenerationUtils:
                     alt_alleles.append(reference_allele)
                     reference_allele = ''.join(alt_allele[1:])
                     variant_allele_support.append(allele_frequency)
+                # elif alt_type == 'E' and len(alt_allele) < 40:
+                #     alt_alleles.append(reference_allele)
+                #     reference_allele = ''.join(alt_allele[2:])
+                #     variant_allele_support.append(allele_frequency)
+            # sys.stderr.write(f"Position: {candidate.position}, alt_alleles: {alt_alleles}, reference_allele: {reference_allele}, genotype: {genotype}, depth: {candidate.depth}, variant_allele_support: {variant_allele_support}\n")
             if len(alt_alleles) > 0:
                 if (candidate.contig, candidate.position) not in positional_candidates.keys():
                     positional_candidates[(candidate.contig, candidate.position)] = []
