@@ -54,4 +54,6 @@ out.txt
 .vscode/
 
 /*.sh
+# but not make_images_**.sh
+!make_images_*.sh
 /debug.txt
