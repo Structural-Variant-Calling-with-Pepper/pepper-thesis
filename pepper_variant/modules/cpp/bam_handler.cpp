@@ -200,7 +200,7 @@ vector<type_read> BAM_handler::get_reads(string chromosome,
                 // if the soft clip is at the start then go back that amount
                 current_read_pos -= cigar_len;
             }
-            bool debug = query_name== "m64012_190921_234837/176095316/ccs" && false;
+            bool debug = query_name== "m64015_190920_185703/126223666/ccs" && print_colored_debug;
             if (debug) {
                 cerr << BOLDGREEN << " current_read_pos: " << current_read_pos << "\t" << cigar_id_to_char[cigar_op] << " " << cigar_len << RESET <<endl;
             }
